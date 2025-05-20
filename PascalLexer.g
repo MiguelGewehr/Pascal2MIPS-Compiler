@@ -1,8 +1,5 @@
 lexer grammar PascalLexer;
 
-fragment LETTER: [a-zA-Z];
-fragment DIGIT: [0-9];
-
 //Special-symbols
 PLUS: '+';
 MINUS: '-';
@@ -29,73 +26,103 @@ LBRACK_ALT: '(.';
 RBRACK_ALT: '.)';
 AT: '@';
 
+
+
+//fragments
+fragment DIGIT : [0-9];
+fragment LETTER : [a-zA-Z];
+
+fragment A : [aA];
+fragment B : [bB];
+fragment C : [cC];
+fragment D : [dD];
+fragment E : [eE];
+fragment F : [fF];
+fragment G : [gG];
+fragment H : [hH];
+fragment I : [iI];
+fragment J : [jJ];
+fragment K : [kK];
+fragment L : [lL];
+fragment M : [mM];
+fragment N : [nN];
+fragment O : [oO];
+fragment P : [pP];
+fragment Q : [qQ];
+fragment R : [rR];
+fragment S : [sS];
+fragment T : [tT];
+fragment U : [uU];
+fragment V : [vV];
+fragment W : [wW];
+fragment X : [xX];
+fragment Y : [yY];
+fragment Z : [zZ];
+
+
+
+
 // Word symbols (keywords)
-AND: 'and';
-ARRAY: 'array';
-BEGIN: 'begin';
-CASE: 'case';
-CONST: 'const';
-DIV: 'div';
-DO: 'do';
-DOWNTO: 'downto';
-ELSE: 'else';
-END: 'end';
-FILE: 'file';
-FOR: 'for';
-FUNCTION: 'function';
-GOTO: 'goto';
-IF: 'if';
-IN: 'in';
-LABEL: 'label';
-MOD: 'mod';
-NIL: 'nil';
-NOT: 'not';
-OF: 'of';
-OR: 'or';
-PACKED: 'packed';
-PROCEDURE: 'procedure';
-PROGRAM: 'program';
-RECORD: 'record';
-REPEAT: 'repeat';
-SET: 'set';
-THEN: 'then';
-TO: 'to';
-TYPE: 'type';
-UNTIL: 'until';
-VAR: 'var';
-WHILE: 'while';
-WITH: 'with';
+AND       : A N D;
+ARRAY     : A R R A Y;
+BEGIN     : B E G I N;
+CASE      : C A S E;
+CONST     : C O N S T;
+DIV       : D I V;
+DO        : D O;
+DOWNTO    : D O W N T O;
+ELSE      : E L S E;
+END       : E N D;
+FILE      : F I L E;
+FOR       : F O R;
+FUNCTION  : F U N C T I O N;
+GOTO      : G O T O;
+IF        : I F;
+IN        : I N;
+LABEL     : L A B E L;
+MOD       : M O D;
+NIL       : N I L;
+NOT       : N O T;
+OF        : O F;
+OR        : O R;
+PACKED    : P A C K E D;
+PROCEDURE : P R O C E D U R E;
+PROGRAM   : P R O G R A M;
+RECORD    : R E C O R D;
+REPEAT    : R E P E A T;
+SET       : S E T;
+THEN      : T H E N;
+TO        : T O;
+TYPE      : T Y P E;
+UNTIL     : U N T I L;
+VAR       : V A R;
+WHILE     : W H I L E;
+WITH      : W I T H;
+WS     : [ \t\n]+ -> skip ;
 
-//Identifiers
-IDENTIFIER: LETTER (LETTER | DIGIT)*;
 
-//Directives (treated same as identifiers but checked in parser)
-DIRECTIVE: LETTER (LETTER | DIGIT)*;
+// Literais
+INTEGER : DIGIT+;
 
-//Numbers
-fragment SIGN: PLUS | MINUS;
-fragment DIGIT_SEQUENCE: DIGIT+;
-fragment FRACTIONAL_PART: DIGIT_SEQUENCE;
-fragment SCALE_FACTOR: SIGN? DIGIT_SEQUENCE;
+REAL
+    : DIGIT+ '.' DIGIT+ (EXPONENT)?
+    | DIGIT+ EXPONENT
+    ;
 
-UNSIGNED_INTEGER: DIGIT_SEQUENCE;
-UNSIGNED_REAL: 
-    DIGIT_SEQUENCE '.' FRACTIONAL_PART ('e' SCALE_FACTOR)?
-    | DIGIT_SEQUENCE 'e' SCALE_FACTOR;
-    
-SIGNED_INTEGER: SIGN DIGIT_SEQUENCE;
-SIGNED_REAL: SIGN (DIGIT_SEQUENCE '.' FRACTIONAL_PART ('e' SCALE_FACTOR)?
-                  | DIGIT_SEQUENCE 'e' SCALE_FACTOR);
+fragment EXPONENT : [eE] [+-]? DIGIT+;
 
-//Labels
-LABEL_NUMBER: DIGIT_SEQUENCE;
+CHARACTER
+    : '\'' ( ~('\'' | '\r' | '\n') | '\'\'' ) '\''
+    ;
 
-//Character-strings
-CHARACTER_STRING: '\'' (~['\r\n] | '\'\'')* '\'';
+STRING
+    : '\'' ( ~('\'' | '\r' | '\n') | '\'\'' )* '\''
+    ;
 
-//Token separators
-COMMENT: '{' .*? '}' | '(*' .*? '*)' -> skip;
-WS: [ \t\r\n]+ -> skip;
+IDENTIFIER
+    : LETTER (LETTER | DIGIT | '_')*
+    ;
 
-// Handle unexpected characters
-ERROR_CHAR: .;
+// Comentários
+COMMENT1 : '{' .*? '}' -> skip;
+COMMENT2 : '(*' .*? '*)' -> skip;

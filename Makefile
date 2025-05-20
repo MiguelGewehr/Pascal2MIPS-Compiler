@@ -1,40 +1,35 @@
-JAVAC = javac
-JAVA = java
-ANTLR_JAR = antlr-4.13.2-complete.jar
-GRAMMAR_NAME = PascalLexer
-GEN_DIR = gen
+# Comando do compilador Java
+JAVAC=javac
+# Comando da JVM
+JAVA=java
+# ROOT é a raiz dos diretórios com todos os roteiros de laboratórios
+YEAR=$(shell pwd | grep -o '20..-.')
+ROOT=/home/asantosoliveira/SALVO/aula-compiladores/lab1
+# Caminho para o JAR do ANTLR em labs/tools
+ANTLR_PATH=/home/asantosoliveira/SALVO/aula-compiladores/tools/antlr-4.13.2-complete.jar
+# Opção de configuração do CLASSPATH para o ambiente Java
+CLASS_PATH_OPTION=-cp .:$(ANTLR_PATH)
+# Configuração do comando de compilação do ANTLR
+ANTLR4=$(JAVA) -jar $(ANTLR_PATH)
+# Configuração do ambiente de teste do ANTLR
+GRUN=$(JAVA) $(CLASS_PATH_OPTION) org.antlr.v4.gui.TestRig
+# Nome da gramática
+GRAMMAR_NAME=PascalLexer
+# Diretório para aonde vão os arquivos gerados
+GEN_PATH=dir_saida
 
-CLASSPATH = .:$(ANTLR_JAR)
-ANTLR_CMD = $(JAVA) -jar $(ANTLR_JAR)
-GRUN_CMD = $(JAVA) -cp $(CLASSPATH) org.antlr.v4.gui.TestRig
-
-TEST_INPUTS = test_inputs
-TEST_OUTPUTS = test_outputs
-
-.PHONY: all clean test
-
-all: antlr compile
-
+# Executa o ANTLR e o compilador Java
+all: antlr javac
+	@echo "Done."
+# Executa o ANTLR para compilar a gramática
 antlr: $(GRAMMAR_NAME).g
-	$(ANTLR_CMD) -o $(GEN_DIR) -no-listener -visitor $(GRAMMAR_NAME).g
-
-compile:
-	$(JAVAC) -cp $(CLASSPATH) $(GEN_DIR)/*.java
-
+	$(ANTLR4) -o $(GEN_PATH) $(GRAMMAR_NAME).g
+# Executa o javac para compilar os arquivos gerados
+javac:
+	$(JAVAC) $(CLASS_PATH_OPTION) $(GEN_PATH)/*.java
+# Executa o lexer. Comando: $ make run FILE=arquivo_de_teste
 run:
-	cd $(GEN_DIR) && $(GRUN_CMD) $(GRAMMAR_NAME) tokens -tokens
-
-runfile:
-	cd $(GEN_DIR) && $(GRUN_CMD) $(GRAMMAR_NAME) tokens -tokens ../$(INPUT_FILE)
-
-test: all
-	@mkdir -p $(TEST_OUTPUTS)
-	@for file in $(TEST_INPUTS)/*.pas; do \
-		echo "Testing $$(basename $$file)"; \
-		cd $(GEN_DIR) && $(GRUN_CMD) $(GRAMMAR_NAME) tokens -tokens ../$$file > ../$(TEST_OUTPUTS)/$$(basename $$file .pas).out 2>&1; \
-	done
-	@echo "All tests completed. Outputs in $(TEST_OUTPUTS)/"
-
+	cd $(GEN_PATH) && $(GRUN) $(GRAMMAR_NAME) tokens -tokens $(FILE)
+# Remove os arquivos gerados pelo ANTLR
 clean:
-	rm -rf $(GEN_DIR)
-	rm -rf $(TEST_OUTPUTS)
+	@rm -rf $(GEN_PATH)
