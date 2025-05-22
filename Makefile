@@ -1,20 +1,24 @@
 # Comando do compilador Java
 JAVAC=javac
+
 # Comando da JVM
 JAVA=java
-# ROOT é a raiz dos diretórios com todos os roteiros de laboratórios
-YEAR=$(shell pwd | grep -o '20..-.')
-ROOT=/home/asantosoliveira/SALVO/aula-compiladores/lab1
+
 # Caminho para o JAR do ANTLR em labs/tools
-ANTLR_PATH=/home/asantosoliveira/SALVO/aula-compiladores/tools/antlr-4.13.2-complete.jar
+ANTLR_PATH=tools/antlr-4.13.2-complete.jar
+
 # Opção de configuração do CLASSPATH para o ambiente Java
-CLASS_PATH_OPTION=-cp .:$(ANTLR_PATH)
+CLASS_PATH_OPTION=-cp .:$(ANTLR_PATH):$(GEN_PATH)
+
 # Configuração do comando de compilação do ANTLR
 ANTLR4=$(JAVA) -jar $(ANTLR_PATH)
+
 # Configuração do ambiente de teste do ANTLR
 GRUN=$(JAVA) $(CLASS_PATH_OPTION) org.antlr.v4.gui.TestRig
+
 # Nome da gramática
 GRAMMAR_NAME=PascalLexer
+
 # Diretório para aonde vão os arquivos gerados
 GEN_PATH=dir_saida
 
@@ -29,7 +33,7 @@ javac:
 	$(JAVAC) $(CLASS_PATH_OPTION) $(GEN_PATH)/*.java
 # Executa o lexer. Comando: $ make run FILE=arquivo_de_teste
 run:
-	cd $(GEN_PATH) && $(GRUN) $(GRAMMAR_NAME) tokens -tokens $(FILE)
+	$(GRUN) $(GRAMMAR_NAME) tokens -tokens $(FILE)
 # Remove os arquivos gerados pelo ANTLR
 clean:
 	@rm -rf $(GEN_PATH)
