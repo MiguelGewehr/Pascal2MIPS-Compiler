@@ -98,7 +98,7 @@ UNTIL     : U N T I L;
 VAR       : V A R;
 WHILE     : W H I L E;
 WITH      : W I T H;
-WS     : [ \t\n]+ -> skip ;
+WS     : [ \t\n\r]+ -> skip ;
 
 
 // Literais
