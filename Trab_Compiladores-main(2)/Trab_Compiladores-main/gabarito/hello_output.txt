@@ -1,0 +1,13 @@
+java -cp .:tools/antlr-4.13.2-complete.jar:dir_saida org.antlr.v4.gui.TestRig PascalLexer tokens -tokens in/hello.pas
+[@0,0:6='program',<PROGRAM>,1:0]
+[@1,8:17='HelloWorld',<IDENTIFIER>,1:8]
+[@2,18:18=';',<';'>,1:18]
+[@3,20:24='begin',<BEGIN>,2:0]
+[@4,28:34='writeln',<IDENTIFIER>,3:2]
+[@5,35:35='(',<'('>,3:9]
+[@6,36:50=''Hello, World!'',<STRING>,3:10]
+[@7,51:51=')',<')'>,3:25]
+[@8,52:52=';',<';'>,3:26]
+[@9,54:56='end',<END>,4:0]
+[@10,57:57='.',<'.'>,4:3]
+[@11,58:57='<EOF>',<EOF>,4:4]
