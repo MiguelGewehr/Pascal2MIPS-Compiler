@@ -47,7 +47,11 @@ typeDefinition:
 ;
 
 typeDenoter: 
-    IDENTIFIER
+    IDENTIFIER | ARRAY LBRACK indexRange RBRACK OF typeDenoter
+;
+
+indexRange:
+    signedNumber DOTDOT signedNumber
 ;
 
 varSection: 
@@ -94,6 +98,7 @@ statement:
     | whileStatement
     | emptyStatement
     | repeatStatement
+    | forStatement 
 ;
 
 assignmentStatement: 
@@ -128,7 +133,7 @@ term:
 ;
 
 factor: 
-    IDENTIFIER
+    IDENTIFIER (LPAREN expressionList? RPAREN)?
     | INTEGER
     | REAL
     | CHARACTER
@@ -138,7 +143,7 @@ factor:
 ;
 
 variable: 
-    IDENTIFIER
+    IDENTIFIER (LBRACK expression RBRACK)?
 ; 
 
 expressionList: 
@@ -155,4 +160,8 @@ formattedExpression:
 
 repeatStatement: 
     REPEAT statementList UNTIL expression
+;
+
+forStatement:
+    FOR assignmentStatement (TO | DOWNTO) expression DO statement
 ;
