@@ -97,6 +97,7 @@ DOTDOT: '..';
 LBRACK_ALT: '(.';
 RBRACK_ALT: '.)';
 AT: '@';
+APOSTROPHE_IMAGE: '\'\'';
 
 
 // Literais
