@@ -17,7 +17,7 @@ ANTLR4=$(JAVA) -jar $(ANTLR_PATH)
 GRUN=$(JAVA) $(CLASS_PATH_OPTION) org.antlr.v4.gui.TestRig
 
 # Nome da gramática
-GRAMMAR_NAME=PascalLexer
+GRAMMAR_NAME=Pascal
 
 # Diretório para aonde vão os arquivos gerados
 GEN_PATH=dir_saida
@@ -26,14 +26,14 @@ GEN_PATH=dir_saida
 all: antlr javac
 	@echo "Done."
 # Executa o ANTLR para compilar a gramática
-antlr: $(GRAMMAR_NAME).g
-	$(ANTLR4) -o $(GEN_PATH) $(GRAMMAR_NAME).g
+antlr: $(GRAMMAR_NAME)Lexer.g $(GRAMMAR_NAME)Parser.g
+	$(ANTLR4) -o $(GEN_PATH) $(GRAMMAR_NAME)Lexer.g $(GRAMMAR_NAME)Parser.g
 # Executa o javac para compilar os arquivos gerados
 javac:
 	$(JAVAC) $(CLASS_PATH_OPTION) $(GEN_PATH)/*.java
 # Executa o lexer. Comando: $ make run FILE=arquivo_de_teste
 run:
-	$(GRUN) $(GRAMMAR_NAME) tokens -tokens $(FILE)
+	$(GRUN) $(GRAMMAR_NAME) program -gui $(FILE)
 # Remove os arquivos gerados pelo ANTLR
 clean:
 	@rm -rf $(GEN_PATH)
