@@ -47,7 +47,15 @@ typeDefinition:
 ;
 
 typeDenoter: 
-    IDENTIFIER | ARRAY LBRACK indexRange RBRACK OF typeDenoter
+    simpleType | arrayType
+;
+
+simpleType:
+    INTEGER_TYPE | CHARACTER_TYPE | REAL_TYPE | STRING_TYPE | IDENTIFIER
+;
+
+arrayType:
+    ARRAY LBRACK indexRange RBRACK OF typeDenoter
 ;
 
 indexRange:
@@ -71,7 +79,7 @@ procedureDeclaration:
 ;
 
 functionDeclaration: 
-    FUNCTION IDENTIFIER (LPAREN formalParameterList RPAREN)? COLON IDENTIFIER SEMI block SEMI
+    FUNCTION IDENTIFIER (LPAREN formalParameterList RPAREN)? COLON typeDenoter SEMI block SEMI
 ;
 
 formalParameterList: 
@@ -79,7 +87,7 @@ formalParameterList:
 ;
 
 formalParameterSection: 
-    identifierList COLON IDENTIFIER
+    identifierList COLON typeDenoter
 ;
 
 compoundStatement: 
@@ -120,26 +128,23 @@ whileStatement:
 emptyStatement:
 ;
 
-expression: 
-    simpleExpression ((EQUAL | NOTEQUAL | LESS | GREATER | LESSEQUAL | GREATEREQUAL) simpleExpression)?
+
+expression
+    : expression (EQUAL | NOTEQUAL | LESS | GREATER | LESSEQUAL | GREATEREQUAL) expression      #exprComparison
+    | expression (PLUS | MINUS | OR) expression                                                 #exprAddSub
+    | expression (STAR | SLASH | DIV | MOD | AND) expression                                    #exprMulDiv
+    | (PLUS | MINUS | NOT) expression                                                           #exprUnary
+    | primaryExpression                                                                         #exprPrimary
 ;
 
-simpleExpression: 
-    term ((PLUS | MINUS | OR) term)*
-;
 
-term: 
-    factor ((STAR | SLASH | DIV | MOD | AND) factor)*
-;
-
-factor: 
+primaryExpression:
     IDENTIFIER (LPAREN expressionList? RPAREN)?
     | INTEGER
     | REAL
     | CHARACTER
     | STRING
     | LPAREN expression RPAREN
-    | NOT factor
 ;
 
 variable: 

@@ -99,6 +99,10 @@ VAR       : V A R;
 WHILE     : W H I L E;
 WITH      : W I T H;
 WS     : [ \t\n\r]+ -> skip ;
+INTEGER_TYPE : I N T E G E R;
+REAL_TYPE : R E A L;
+CHARACTER_TYPE : C H A R;
+STRING_TYPE : S T R I N G;
 
 
 // Literais
