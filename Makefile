@@ -7,33 +7,48 @@ JAVA=java
 # Caminho para o JAR do ANTLR em labs/tools
 ANTLR_PATH=tools/antlr-4.13.2-complete.jar
 
-# Opção de configuração do CLASSPATH para o ambiente Java
-CLASS_PATH_OPTION=-cp .:$(ANTLR_PATH):$(GEN_PATH)
-
-# Configuração do comando de compilação do ANTLR
-ANTLR4=$(JAVA) -jar $(ANTLR_PATH)
-
-# Configuração do ambiente de teste do ANTLR
-GRUN=$(JAVA) $(CLASS_PATH_OPTION) org.antlr.v4.gui.TestRig
+# Diretórios
+GEN_PATH=parser# saída dos .java gerados pelo ANTLR
+BIN_PATH=bin# saída dos .class
 
 # Nome da gramática
 GRAMMAR_NAME=Pascal
+LEXER_FILE=$(GRAMMAR_NAME)Lexer.g
+PARSER_FILE=$(GRAMMAR_NAME)Parser.g
 
-# Diretório para aonde vão os arquivos gerados
-GEN_PATH=dir_saida
+# Configurações de classpath
+CLASS_PATH_OPTION=-cp .:$(ANTLR_PATH):$(GEN_PATH):$(BIN_PATH)
 
-# Executa o ANTLR e o compilador Java
+# Comando do ANTLR com suporte a visitor
+ANTLR4=$(JAVA) -jar $(ANTLR_PATH)
+
+# TestRig (opcional, modo debug)
+GRUN=$(JAVA) $(CLASS_PATH_OPTION) org.antlr.v4.gui.TestRig
+
+# ======== Targets =========
+
+# Gera arquivos do ANTLR e compila com javac
 all: antlr javac
-	@echo "Done."
-# Executa o ANTLR para compilar a gramática
-antlr: $(GRAMMAR_NAME)Lexer.g $(GRAMMAR_NAME)Parser.g
-	$(ANTLR4) -o $(GEN_PATH) $(GRAMMAR_NAME)Lexer.g $(GRAMMAR_NAME)Parser.g
-# Executa o javac para compilar os arquivos gerados
+	@echo "Compilação concluída."
+
+# Executa o ANTLR com visitor
+antlr: $(LEXER_FILE) $(PARSER_FILE)
+	$(ANTLR4) -no-listener -visitor -o $(GEN_PATH) $(LEXER_FILE) $(PARSER_FILE)
+
+# Compila os arquivos Java
 javac:
-	$(JAVAC) $(CLASS_PATH_OPTION) $(GEN_PATH)/*.java
-# Executa o lexer. Comando: $ make run FILE=arquivo_de_teste
+	rm -rf $(BIN_PATH)
+	mkdir -p $(BIN_PATH)
+	$(JAVAC) $(CLASS_PATH_OPTION) -d $(BIN_PATH) $(GEN_PATH)/*.java PascalSemanticVisitor.java Main.java
+
+# Executa o Main.java com arquivo de entrada
 run:
-	$(GRUN) $(GRAMMAR_NAME) program -gui $(FILE)
-# Remove os arquivos gerados pelo ANTLR
+	$(JAVA) $(CLASS_PATH_OPTION) Main $(FILE)
+
+# Debug opcional com GUI do ANTLR
+debug:
+	cd $(BIN_PATH) && $(GRUN) parser.$(GRAMMAR_NAME) program -gui $(FILE)
+
+# Limpa arquivos gerados
 clean:
-	@rm -rf $(GEN_PATH)
+	rm -rf $(GEN_PATH) $(BIN_PATH)
