@@ -8,6 +8,7 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<Void> {
     private final Set<String> stringLiterals = new HashSet<>();
     private boolean hasErrors = false;
 
+    //percorre e insere na tabela todas variaveis daquele tipo
     @Override
     public Void visitVarDeclaration(PascalParser.VarDeclarationContext ctx) {
         String tipo = ctx.typeDenoter().getText();
@@ -51,13 +52,20 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<Void> {
     @Override
     public Void visitAssignmentStatement(PascalParser.AssignmentStatementContext ctx) {
         String varName = ctx.variable().IDENTIFIER().getText();
-        if (!symbolTable.containsKey(varName)) {
+        Simbolo simbolo = symbolTable.get(varName);
+        
+        if (simbolo == null) {
             System.err.println("Erro: variável '" + varName + "' não declarada");
             hasErrors = true;
+        } else if (simbolo.categoria.equals("constante")) {
+            System.err.println("Erro: tentativa de modificar constante '" + varName + "'");
+            hasErrors = true;
         }
+        
         visit(ctx.expression());
         return null;
     }
+
 
     @Override
     public Void visitProcedureCall(PascalParser.ProcedureCallContext ctx) {
@@ -83,6 +91,37 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<Void> {
 
         return null;
     }
+
+    @Override
+    public Void visitConstDefinition(PascalParser.ConstDefinitionContext ctx) {
+        String nome = ctx.IDENTIFIER().getText();
+        String tipo = inferConstantType(ctx.constant());
+        
+        Simbolo simbolo = new Simbolo(
+            nome,
+            tipo,
+            "constante",
+            "global",
+            ctx.getStart().getLine()
+        );
+        symbolTable.put(nome, simbolo);
+        return super.visitConstDefinition(ctx);
+    }
+
+    private String inferConstantType(PascalParser.ConstantContext ctx) {
+        if (ctx.signedNumber() != null) {
+            if (ctx.signedNumber().REAL() != null) {
+                return "real";
+            }
+            return "integer";
+        }
+        if (ctx.CHARACTER() != null) return "char";
+        if (ctx.STRING() != null) return "string";
+        if (ctx.IDENTIFIER() != null) return "identifier"; // constante definida anteriormente
+        return "desconhecido";
+    }
+
+
 
     @Override
     public Void visitExpressionItem(PascalParser.ExpressionItemContext ctx) {
