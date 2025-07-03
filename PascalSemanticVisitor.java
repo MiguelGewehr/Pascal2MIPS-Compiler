@@ -4,11 +4,16 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 
 public class PascalSemanticVisitor extends PascalParserBaseVisitor<Void> {
 
-    private final Map<String, Simbolo> symbolTable = new HashMap<>();
+    private final Map<String, Map<String, Simbolo>> scopes = new HashMap<>();
+    private String currentScope = "global";
     private final Set<String> stringLiterals = new HashSet<>();
     private boolean hasErrors = false;
 
-    //percorre e insere na tabela todas variaveis daquele tipo
+    public PascalSemanticVisitor() {
+        // Inicializa o escopo global
+        scopes.put("global", new HashMap<>());
+    }
+
     @Override
     public Void visitVarDeclaration(PascalParser.VarDeclarationContext ctx) {
         String tipo = ctx.typeDenoter().getText();
@@ -20,10 +25,11 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<Void> {
                 nome,
                 tipo,
                 isVetor ? "vetor" : "variável",
-                "global",
                 id.getSymbol().getLine()
             );
-            symbolTable.put(nome, simbolo);
+            
+            // Adiciona no escopo atual
+            scopes.get(currentScope).put(nome, simbolo);
         }
 
         return super.visitVarDeclaration(ctx);
@@ -31,7 +37,7 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<Void> {
 
     @Override
     public Void visitFunctionDeclaration(PascalParser.FunctionDeclarationContext ctx) {
-        String nome = ctx.getChild(1).getText(); // IDENTIFIER
+        String nomeFuncao = ctx.getChild(1).getText(); // IDENTIFIER
         String tipoRetorno = "desconhecido";
 
         for (int i = 0; i < ctx.getChildCount(); i++) {
@@ -41,18 +47,77 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<Void> {
             }
         }
 
-        Simbolo simbolo = new Simbolo(nome, tipoRetorno, "função", "global", ctx.getStart().getLine());
-        symbolTable.put(nome, simbolo);
+        // Adiciona a função no escopo global
+        Simbolo simboloFuncao = new Simbolo(
+            nomeFuncao, 
+            tipoRetorno, 
+            "função", 
+            ctx.getStart().getLine()
+        );
+        scopes.get("global").put(nomeFuncao, simboloFuncao);
 
-        return super.visitFunctionDeclaration(ctx);
+        // Cria um novo escopo para a função
+        scopes.put(nomeFuncao, new HashMap<>());
+        String escopoAnterior = currentScope;
+        currentScope = nomeFuncao;
+
+        // Visita os parâmetros e o corpo da função
+        super.visitFunctionDeclaration(ctx);
+
+        // Restaura o escopo anterior
+        currentScope = escopoAnterior;
+        return null;
     }
 
+    @Override
+    public Void visitProcedureDeclaration(PascalParser.ProcedureDeclarationContext ctx) {
+        String nomeProcedimento = ctx.getChild(1).getText(); // IDENTIFIER
 
+        // Adiciona o procedimento no escopo global
+        Simbolo simboloProc = new Simbolo(
+            nomeProcedimento, 
+            "void", 
+            "procedimento", 
+            ctx.getStart().getLine()
+        );
+        scopes.get("global").put(nomeProcedimento, simboloProc);
+
+        // Cria um novo escopo para o procedimento
+        scopes.put(nomeProcedimento, new HashMap<>());
+        String escopoAnterior = currentScope;
+        currentScope = nomeProcedimento;
+
+        // Visita os parâmetros e o corpo do procedimento
+        super.visitProcedureDeclaration(ctx);
+
+        // Restaura o escopo anterior
+        currentScope = escopoAnterior;
+        return null;
+    }
+
+    @Override
+    public Void visitFormalParameterSection(PascalParser.FormalParameterSectionContext ctx) {
+        // Adiciona parâmetros no escopo atual (que será da função/procedimento)
+        String tipo = ctx.IDENTIFIER().getText();
+        for (TerminalNode id : ctx.identifierList().IDENTIFIER()) {
+            String nome = id.getText();
+            Simbolo simbolo = new Simbolo(
+                nome,
+                tipo,
+                "parâmetro",
+                id.getSymbol().getLine()
+            );
+            scopes.get(currentScope).put(nome, simbolo);
+        }
+        return null;
+    }
 
     @Override
     public Void visitAssignmentStatement(PascalParser.AssignmentStatementContext ctx) {
         String varName = ctx.variable().IDENTIFIER().getText();
-        Simbolo simbolo = symbolTable.get(varName);
+        
+        // Procura a variável nos escopos, começando pelo atual
+        Simbolo simbolo = findSymbol(varName);
         
         if (simbolo == null) {
             System.err.println("Erro: variável '" + varName + "' não declarada");
@@ -66,6 +131,14 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<Void> {
         return null;
     }
 
+    private Simbolo findSymbol(String name) {
+        // Primeiro procura no escopo atual
+        Simbolo simbolo = scopes.get(currentScope).get(name);
+        if (simbolo != null) return simbolo;
+        
+        // Se não encontrou, procura no escopo global
+        return scopes.get("global").get(name);
+    }
 
     @Override
     public Void visitProcedureCall(PascalParser.ProcedureCallContext ctx) {
@@ -73,7 +146,6 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<Void> {
 
         if (procName.equals("read") || procName.equals("readln") || 
             procName.equals("write") || procName.equals("writeln")) {
-
             if (ctx.expressionList() != null) {
                 for (var exprItem : ctx.expressionList().expressionItem()) {
                     visit(exprItem);
@@ -82,8 +154,8 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<Void> {
             return null;
         }
 
-        // Verifica se o procedimento está declarado
-        Simbolo s = symbolTable.get(procName);
+        // Verifica se o procedimento está declarado no escopo global
+        Simbolo s = scopes.get("global").get(procName);
         if (s == null || (!s.categoria.equals("procedimento") && !s.categoria.equals("função"))) {
             System.err.println("Erro: chamada para procedimento ou função não declarado: " + procName);
             hasErrors = true;
@@ -101,10 +173,9 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<Void> {
             nome,
             tipo,
             "constante",
-            "global",
             ctx.getStart().getLine()
         );
-        symbolTable.put(nome, simbolo);
+        scopes.get(currentScope).put(nome, simbolo);
         return super.visitConstDefinition(ctx);
     }
 
@@ -121,18 +192,6 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<Void> {
         return "desconhecido";
     }
 
-
-
-    @Override
-    public Void visitExpressionItem(PascalParser.ExpressionItemContext ctx) {
-        if (ctx.expression() != null) {
-            visit(ctx.expression());
-        } else if (ctx.formattedExpression() != null) {
-            visit(ctx.formattedExpression());
-        }
-        return null;
-    }
-
     @Override
     public Void visitFactor(PascalParser.FactorContext ctx) {
         if (ctx.STRING() != null) {
@@ -143,14 +202,18 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<Void> {
 
     public void printAnalysis() {
         System.out.println("\n=== Análise Semântica ===");
-        System.out.println("Símbolos declarados:");
-        symbolTable.forEach((nome, simbolo) -> {
-            System.out.printf("  %s : %s (%s, escopo: %s, linha: %d)\n",
-                simbolo.nome, simbolo.tipo, simbolo.categoria, simbolo.escopo, simbolo.linha);
+        
+        System.out.println("Símbolos declarados por escopo:");
+        scopes.forEach((escopo, tabela) -> {
+            System.out.println("\nEscopo: " + escopo);
+            tabela.forEach((nome, simbolo) -> {
+                System.out.printf("  %s : %s (%s, linha: %d)\n",
+                    simbolo.nome, simbolo.tipo, simbolo.categoria, simbolo.linha);
+            });
         });
 
-        System.out.println("\nStrings literais encontradas:");
-        stringLiterals.forEach(str -> System.out.println("  " + str));
+        //System.out.println("\nStrings literais encontradas:");
+        //stringLiterals.forEach(str -> System.out.println("  " + str));
 
         System.out.println("\nStatus: " + (hasErrors ? "ERROS ENCONTRADOS" : "OK"));
     }
