@@ -12,6 +12,8 @@ begin
   Square := n * n;
 end;
 
+
+
 begin
   for i := 1 to 5 do
     arr[i] := Square(i);
