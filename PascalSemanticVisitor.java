@@ -44,6 +44,10 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
             return TipoSimbolo.CHAR;
         if (ctx.STRING() != null)
             return TipoSimbolo.STRING;
+        
+        if (ctx.TRUE() != null || ctx.FALSE() != null) 
+            return TipoSimbolo.BOOLEAN; 
+    
         if (ctx.IDENTIFIER() != null) {
             Simbolo s = findSymbol(ctx.IDENTIFIER().getText());
             if (s != null && s.categoria == CategoriaSimbolo.CONSTANTE) {
@@ -271,6 +275,8 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
             return TipoSimbolo.REAL;
         if (ctx.CHARACTER() != null)
             return TipoSimbolo.CHAR;
+        if (ctx.TRUE() != null || ctx.FALSE() != null) 
+            return TipoSimbolo.BOOLEAN;
         if (ctx.STRING() != null) {
             stringLiterals.add(ctx.STRING().getText());
             return TipoSimbolo.STRING;
@@ -373,10 +379,11 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
     }
 
     private boolean verificarCompatibilidadeRelacional(TipoSimbolo esq, TipoSimbolo dir) {
+        boolean ambosBooleanos = (esq == TipoSimbolo.BOOLEAN && dir == TipoSimbolo.BOOLEAN);
         boolean ambosNumericos = (esq == TipoSimbolo.INTEGER || esq == TipoSimbolo.REAL)
                 && (dir == TipoSimbolo.INTEGER || dir == TipoSimbolo.REAL);
         boolean ambosMesmoTipo = esq == dir;
-        return ambosNumericos || (ambosMesmoTipo && esq != TipoSimbolo.ARRAY && esq != TipoSimbolo.DESCONHECIDO);
+        return ambosBooleanos || ambosNumericos || (ambosMesmoTipo && esq != TipoSimbolo.ARRAY && esq != TipoSimbolo.DESCONHECIDO);
     }
 
     private TipoSimbolo unificarTipos(TipoSimbolo esq, TipoSimbolo dir, String op, int linha) {

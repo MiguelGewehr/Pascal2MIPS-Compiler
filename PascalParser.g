@@ -31,7 +31,7 @@ constDefinition:
 ;
 
 constant: 
-    signedNumber | CHARACTER | STRING | IDENTIFIER
+    signedNumber | CHARACTER | STRING | IDENTIFIER | TRUE | FALSE 
 ;
 
 signedNumber: 
@@ -47,7 +47,8 @@ typeDefinition:
 ;
 
 typeDenoter: 
-    IDENTIFIER | ARRAY LBRACK indexRange RBRACK OF typeDenoter
+    (IDENTIFIER | BOOLEAN) 
+    | ARRAY LBRACK indexRange RBRACK OF typeDenoter
 ;
 
 indexRange:
@@ -140,6 +141,8 @@ factor:
     | STRING
     | LPAREN expression RPAREN
     | NOT factor
+    | TRUE   
+    | FALSE
 ;
 
 variable: 

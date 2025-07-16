@@ -98,6 +98,9 @@ UNTIL     : U N T I L;
 VAR       : V A R;
 WHILE     : W H I L E;
 WITH      : W I T H;
+BOOLEAN   : B O O L E A N;
+TRUE      : T R U E;
+FALSE     : F A L S E;
 WS     : [ \t\n\r]+ -> skip ;
 
 
