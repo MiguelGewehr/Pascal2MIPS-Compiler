@@ -8,9 +8,6 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
     private String currentScope = "global";
     private final Set<String> stringLiterals = new HashSet<>();
     private boolean hasErrors = false;
-    private TipoSimbolo currentFunctionReturnType = null;
-    private boolean hasReturnStatement = false;
-    private String currentFunctionName = null;
 
     public PascalSemanticVisitor() {
         scopes.put("global", new HashMap<>());
@@ -84,21 +81,10 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
     @Override
     public TipoSimbolo visitFunctionDeclaration(PascalParser.FunctionDeclarationContext ctx) {
         String nomeFuncao = ctx.getChild(1).getText().toLowerCase();
-        String tipoRetornoStr = ctx.IDENTIFIER(1).getText();
+        String tipoRetornoStr = ctx.getChild(ctx.getChildCount() - 3).getText();
+
         TipoSimbolo tipoRetorno = converterTipo(tipoRetornoStr);
         Simbolo simboloFuncao = new Simbolo(nomeFuncao, tipoRetorno, CategoriaSimbolo.FUNCAO, ctx.getStart().getLine());
-
-        currentFunctionName = nomeFuncao;
-        currentFunctionReturnType = tipoRetorno;
-        hasReturnStatement = false;
-
-        Simbolo varRetorno = new Simbolo(
-            nomeFuncao,
-            tipoRetorno,
-            CategoriaSimbolo.VARIAVEL,
-            ctx.getStart().getLine()
-        );
-        scopes.get(currentScope).put(nomeFuncao, varRetorno);
 
         if (scopes.get("global").containsKey(nomeFuncao)) {
             reportarErro(ctx.getStart().getLine(), "Identificador '" + nomeFuncao + "' já declarado no escopo global.");
@@ -112,16 +98,6 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
 
         visitChildren(ctx); // Visita parâmetros e o bloco da função
 
-        // Verificação final de retorno
-        if (!hasReturnStatement) {
-            reportarErro(ctx.getStart().getLine(), 
-                "Função '" + nomeFuncao + "' não possui retorno");
-        }
-        
-        // Limpa estado após sair da função
-        currentFunctionReturnType = null;
-        currentFunctionName = null;
-    
         currentScope = escopoAnterior;
         return null;
     }
@@ -181,25 +157,6 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
 
         if (tipoVariavel != null && tipoExpressao != null) {
             verificarCompatibilidadeAtribuicao(tipoVariavel, tipoExpressao, ctx.getStart().getLine());
-        }
-
-        // Verificação de atribuição de retorno
-        if (currentFunctionReturnType != null) {
-            PascalParser.VariableContext varCtx = ctx.variable();
-            if (varCtx.expression() == null) { // Não é acesso a vetor
-                String varName = varCtx.IDENTIFIER().getText().toLowerCase();
-                if (varName.equals(currentFunctionName)) {
-                    hasReturnStatement = true;
-                    
-                    // Verifica compatibilidade do tipo
-                    TipoSimbolo tipoExpr = visit(ctx.expression());
-                    if (tipoExpr != currentFunctionReturnType) {
-                        reportarErro(ctx.getStart().getLine(),
-                            "Tipo de retorno incompatível. Esperado: " + currentFunctionReturnType +
-                            ", Obtido: " + tipoExpr);
-                    }
-                }
-            }
         }
         return null;
     }
@@ -499,33 +456,5 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
 
     public boolean hasErrors() {
         return hasErrors;
-    }
-
-    @Override
-    public TipoSimbolo visitBlock(PascalParser.BlockContext ctx) {
-        // 1. Salva o estado anterior do controle de retorno
-        boolean oldHasReturn = hasReturnStatement;
-        
-        // 2. Se estivermos em uma função, reinicia o controle para este bloco
-        if (currentFunctionReturnType != null) {
-            hasReturnStatement = false;
-        }
-        
-        // 3. Visita todas as declarações e statements do bloco
-        visitChildren(ctx);
-        
-        // 4. Se estivermos em uma função:
-        if (currentFunctionReturnType != null) {
-            // Verifica se o bloco principal da função tem retorno
-            if (ctx.parent instanceof PascalParser.FunctionDeclarationContext && !hasReturnStatement) {
-                reportarErro(ctx.getStart().getLine(), 
-                    "Função '" + currentFunctionName + "' não possui retorno em todos os caminhos");
-            }
-            
-            // 5. Restaura o estado do bloco anterior
-            hasReturnStatement = oldHasReturn;
-        }
-        
-        return null;
     }
 }
