@@ -1,5 +1,5 @@
 public enum TipoSimbolo {
-    INTEGER, REAL, CHAR, STRING, BOOLEAN, IDENTIFIER, ARRAY, DESCONHECIDO;
+    INTEGER, REAL, CHAR, STRING, BOOLEAN, IDENTIFIER, DESCONHECIDO;
 
     // Para literais (com base no tokenType do lexer)
     public static TipoSimbolo fromTokenType(int tokenType) {
@@ -22,7 +22,7 @@ public enum TipoSimbolo {
             case "char" -> CHAR;
             case "string" -> STRING;
             case "boolean" -> BOOLEAN;
-            default -> tipoStr.contains("array") ? ARRAY : DESCONHECIDO;
+            default -> DESCONHECIDO;
         };
     }
 
@@ -35,7 +35,6 @@ public enum TipoSimbolo {
             case STRING -> "string";
             case BOOLEAN -> "boolean";
             case IDENTIFIER -> "identifier";
-            case ARRAY -> "array";
             case DESCONHECIDO -> "desconhecido";
         };
     }

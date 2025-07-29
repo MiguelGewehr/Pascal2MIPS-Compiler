@@ -48,9 +48,12 @@ typeDefinition:
 
 typeDenoter: 
     (IDENTIFIER | BOOLEAN) 
-    | ARRAY LBRACK indexRange RBRACK OF typeDenoter
+    | arrayType
 ;
 
+arrayType
+    : ARRAY LBRACK indexRange RBRACK OF typeDenoter
+    ;
 indexRange:
     signedNumber DOTDOT signedNumber
 ;

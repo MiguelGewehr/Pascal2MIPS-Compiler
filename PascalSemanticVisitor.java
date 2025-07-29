@@ -30,7 +30,7 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
             case "char" -> TipoSimbolo.CHAR;
             case "string" -> TipoSimbolo.STRING;
             case "boolean" -> TipoSimbolo.BOOLEAN;
-            default -> tipoStr.contains("array") ? TipoSimbolo.ARRAY : TipoSimbolo.DESCONHECIDO;
+            default -> TipoSimbolo.DESCONHECIDO;
         };
     }
 
@@ -63,15 +63,47 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
     public TipoSimbolo visitVarDeclaration(PascalParser.VarDeclarationContext ctx) {
         String tipoStr = ctx.typeDenoter().getText();
         boolean isVetor = tipoStr.toLowerCase().contains("array");
-        TipoSimbolo tipo = converterTipo(tipoStr);
+        TipoSimbolo tipo = null;
+        TipoArray tipoArray = null;
+
+        if (isVetor) 
+        {
+            // Extrair informações do array
+            PascalParser.ArrayTypeContext arrayCtx = (PascalParser.ArrayTypeContext) ctx.typeDenoter().arrayType();
+            int inicio = Integer.parseInt(arrayCtx.indexRange().signedNumber(0).getText());
+            int fim = Integer.parseInt(arrayCtx.indexRange().signedNumber(1).getText());
+            TipoSimbolo tipoBase = converterTipo(arrayCtx.typeDenoter().getText());
+            
+            tipoArray = new TipoArray(tipoBase, inicio, fim);
+        } 
+        
+        else 
+        {
+            tipo = converterTipo(tipoStr);
+        }
 
         for (TerminalNode id : ctx.identifierList().IDENTIFIER()) {
+            
             String nome = id.getText().toLowerCase();
-            if (scopes.get(currentScope).containsKey(nome)) {
+            
+            if (scopes.get(currentScope).containsKey(nome)) 
+            {
                 reportarErro(id.getSymbol().getLine(), "Identificador '" + nome + "' já declarado neste escopo.");
-            } else {
+            } 
+            else 
+            {
                 CategoriaSimbolo categoria = isVetor ? CategoriaSimbolo.VETOR : CategoriaSimbolo.VARIAVEL;
-                Simbolo simbolo = new Simbolo(nome, tipo, categoria, id.getSymbol().getLine());
+                Simbolo simbolo;
+                
+                if (isVetor) 
+                {
+                    simbolo = new Simbolo(nome, tipoArray, categoria, id.getSymbol().getLine());
+                } 
+                else 
+                {
+                    simbolo = new Simbolo(nome, tipo, categoria, id.getSymbol().getLine());
+                }
+
                 scopes.get(currentScope).put(nome, simbolo);
             }
         }
@@ -318,15 +350,18 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
 
     @Override
     public TipoSimbolo visitVariable(PascalParser.VariableContext ctx) {
+        
         String nome = ctx.IDENTIFIER().getText().toLowerCase();
         Simbolo s = findSymbol(nome);
-        if (s == null) {
+
+        if (s == null) 
+        {
             reportarErro(ctx.getStart().getLine(), "Variável '" + nome + "' não declarada.");
             return null;
         }
 
         if (ctx.expression() != null) { // Acesso a vetor
-            if (s.categoria != CategoriaSimbolo.VETOR) {
+            if (s.categoria != CategoriaSimbolo.VETOR || s.tipoArray == null) {
                 reportarErro(ctx.getStart().getLine(), "Tentativa de indexar '" + nome + "', que não é um vetor.");
                 return null;
             }
@@ -336,11 +371,8 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
                         "indice do vetor deve ser um inteiro, mas foi '" + tipoIndice + "'.");
                 return null;
             }
-            // Em Pascal, o tipo de `a[i]` é o tipo base do array `a`.
-            // Para simplificar, estamos retornando o tipo 'ARRAY', mas o correto
-            // seria ter um tipo base associado no símbolo. Retornar s.tipo está OK
-            // para a verificação de atribuição se o tipo base for o mesmo.
-            return s.tipo;
+
+            return s.tipoArray.getTipoBase();
         }
         return s.tipo;
     }
@@ -383,7 +415,7 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
         boolean ambosNumericos = (esq == TipoSimbolo.INTEGER || esq == TipoSimbolo.REAL)
                 && (dir == TipoSimbolo.INTEGER || dir == TipoSimbolo.REAL);
         boolean ambosMesmoTipo = esq == dir;
-        return ambosBooleanos || ambosNumericos || (ambosMesmoTipo && esq != TipoSimbolo.ARRAY && esq != TipoSimbolo.DESCONHECIDO);
+        return ambosBooleanos || ambosNumericos || (ambosMesmoTipo && esq != TipoSimbolo.DESCONHECIDO);
     }
 
     private TipoSimbolo unificarTipos(TipoSimbolo esq, TipoSimbolo dir, String op, int linha) {
