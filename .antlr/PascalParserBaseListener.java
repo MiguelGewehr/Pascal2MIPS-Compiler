@@ -1,4 +1,4 @@
-// Generated from /home/yomaia/Trab_Compiladores-main/PascalParser.g by ANTLR 4.13.1
+// Generated from /home/mgoliveira/Documents/Trab_Compiladores/PascalParser.g by ANTLR 4.13.1
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ErrorNode;
@@ -155,6 +155,18 @@ public class PascalParserBaseListener implements PascalParserListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitTypeDenoter(PascalParser.TypeDenoterContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterArrayType(PascalParser.ArrayTypeContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitArrayType(PascalParser.ArrayTypeContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

@@ -9,7 +9,6 @@ public enum TipoSimbolo {
             case PascalLexer.CHARACTER -> CHAR;
             case PascalLexer.STRING -> STRING;
             case PascalLexer.IDENTIFIER -> IDENTIFIER;
-            case PascalLexer.TRUE, PascalLexer.FALSE -> BOOLEAN;
             default -> DESCONHECIDO;
         };
     }
@@ -22,6 +21,7 @@ public enum TipoSimbolo {
             case "char" -> CHAR;
             case "string" -> STRING;
             case "boolean" -> BOOLEAN;
+            case "true", "false" -> BOOLEAN;
             default -> DESCONHECIDO;
         };
     }

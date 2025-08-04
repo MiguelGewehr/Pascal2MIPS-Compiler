@@ -31,7 +31,7 @@ constDefinition:
 ;
 
 constant: 
-    signedNumber | CHARACTER | STRING | IDENTIFIER | TRUE | FALSE 
+    signedNumber | CHARACTER | STRING | IDENTIFIER 
 ;
 
 signedNumber: 
@@ -47,7 +47,7 @@ typeDefinition:
 ;
 
 typeDenoter: 
-    (IDENTIFIER | BOOLEAN) 
+    IDENTIFIER
     | arrayType
 ;
 
@@ -144,8 +144,6 @@ factor:
     | STRING
     | LPAREN expression RPAREN
     | NOT factor
-    | TRUE   
-    | FALSE
 ;
 
 variable: 

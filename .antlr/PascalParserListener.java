@@ -1,4 +1,4 @@
-// Generated from /home/yomaia/Trab_Compiladores-main/PascalParser.g by ANTLR 4.13.1
+// Generated from /home/mgoliveira/Documents/Trab_Compiladores/PascalParser.g by ANTLR 4.13.1
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 
 /**
@@ -126,6 +126,16 @@ public interface PascalParserListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitTypeDenoter(PascalParser.TypeDenoterContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link PascalParser#arrayType}.
+	 * @param ctx the parse tree
+	 */
+	void enterArrayType(PascalParser.ArrayTypeContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link PascalParser#arrayType}.
+	 * @param ctx the parse tree
+	 */
+	void exitArrayType(PascalParser.ArrayTypeContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link PascalParser#indexRange}.
 	 * @param ctx the parse tree

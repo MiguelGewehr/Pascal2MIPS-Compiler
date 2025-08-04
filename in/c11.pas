@@ -1,4 +1,4 @@
-program BoleanoBobo;
+program c11;
 var
   ehVerdade, ehMentira: boolean;
 begin

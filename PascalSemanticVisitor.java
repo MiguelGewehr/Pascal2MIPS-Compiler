@@ -45,15 +45,17 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
         if (ctx.STRING() != null)
             return TipoSimbolo.STRING;
         
-        if (ctx.TRUE() != null || ctx.FALSE() != null) 
-            return TipoSimbolo.BOOLEAN; 
-    
         if (ctx.IDENTIFIER() != null) {
-            Simbolo s = findSymbol(ctx.IDENTIFIER().getText());
+            String nome = ctx.IDENTIFIER().getText().toLowerCase();
+            if (nome.equals("true") || nome.equals("false")) {
+                return TipoSimbolo.BOOLEAN;
+            }
+            Simbolo s = findSymbol(nome);
             if (s != null && s.categoria == CategoriaSimbolo.CONSTANTE) {
                 return s.tipo;
             }
         }
+
         return TipoSimbolo.DESCONHECIDO;
     }
 
@@ -301,21 +303,27 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
 
     @Override
     public TipoSimbolo visitFactor(PascalParser.FactorContext ctx) {
+        
         if (ctx.INTEGER() != null)
             return TipoSimbolo.INTEGER;
+
         if (ctx.REAL() != null)
             return TipoSimbolo.REAL;
+
         if (ctx.CHARACTER() != null)
             return TipoSimbolo.CHAR;
-        if (ctx.TRUE() != null || ctx.FALSE() != null) 
-            return TipoSimbolo.BOOLEAN;
-        if (ctx.STRING() != null) {
+
+        if (ctx.STRING() != null) 
+        {
             stringLiterals.add(ctx.STRING().getText());
             return TipoSimbolo.STRING;
         }
+
         if (ctx.LPAREN() != null)
             return visit(ctx.expression());
-        if (ctx.NOT() != null) {
+
+        if (ctx.NOT() != null) 
+        {
             TipoSimbolo tipo = visit(ctx.factor());
             if (tipo != TipoSimbolo.BOOLEAN) {
                 reportarErroTipoUnario(ctx.getStart().getLine(), "NOT", tipo);
@@ -323,28 +331,45 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
             }
             return TipoSimbolo.BOOLEAN;
         }
-        if (ctx.IDENTIFIER() != null) {
+        
+        if (ctx.IDENTIFIER() != null) 
+        {
             String nome = ctx.IDENTIFIER().getText().toLowerCase();
+            
+            if (nome.equals("true") || nome.equals("false")) 
+            {
+                return TipoSimbolo.BOOLEAN;
+            }
             Simbolo s = findSymbol(nome);
-            if (s == null) {
+            
+            if (s == null) 
+            {
                 reportarErro(ctx.getStart().getLine(), "Identificador '" + nome + "' não declarado.");
                 return TipoSimbolo.DESCONHECIDO;
             }
-            if (ctx.expressionList() != null) { // Chamada de função
-                if (s.categoria != CategoriaSimbolo.FUNCAO) {
+            
+            if (ctx.expressionList() != null) 
+            { // Chamada de função
+                if (s.categoria != CategoriaSimbolo.FUNCAO) 
+                {
                     reportarErro(ctx.getStart().getLine(), "'" + nome + "' não é uma função e não pode ser chamada.");
                     return TipoSimbolo.DESCONHECIDO;
                 }
-                // Validar parâmetros aqui se necessário
                 return s.tipo;
-            } else { // Variável ou constante
-                if (s.categoria == CategoriaSimbolo.FUNCAO) {
+            } 
+            
+            else 
+            {
+                if (s.categoria == CategoriaSimbolo.FUNCAO) 
+                {
                     reportarErro(ctx.getStart().getLine(), "Função '" + nome + "' usada sem chamada de parênteses.");
                     return TipoSimbolo.DESCONHECIDO;
                 }
+                
                 return s.tipo;
             }
         }
+
         return TipoSimbolo.DESCONHECIDO;
     }
 
