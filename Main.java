@@ -53,13 +53,13 @@ public class Main {
 		CharStream input = CharStreams.fromFileName(args[0]);
 
 		// Cria um lexer que consome a entrada do CharStream.
-		EZLexer lexer = new PascalLexer(input);
+		PascalLexer lexer = new PascalLexer(input);
 
 		// Cria um buffer de tokens vindos do lexer.
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
 
 		// Cria um parser que consome os tokens do buffer.
-		EZParser parser = new PascalParser(tokens);
+		PascalParser parser = new PascalParser(tokens);
 
 		// Começa o processo de parsing na regra 'program'.
 		ParseTree tree = parser.program();

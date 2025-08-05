@@ -39,7 +39,7 @@ antlr: $(LEXER_FILE) $(PARSER_FILE)
 javac:
 	rm -rf $(BIN_PATH)
 	mkdir -p $(BIN_PATH)
-	$(JAVAC) $(CLASS_PATH_OPTION) -d $(BIN_PATH) $(GEN_PATH)/*.java PascalSemanticVisitor.java Main.java
+	$(JAVAC) $(CLASS_PATH_OPTION) -d $(BIN_PATH) $(GEN_PATH)/*.java checker/SemanticChecker.java Main.java
 
 # Executa o Main.java com arquivo de entrada
 run:
