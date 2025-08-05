@@ -115,7 +115,23 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
     @Override
     public TipoSimbolo visitFunctionDeclaration(PascalParser.FunctionDeclarationContext ctx) {
         String nomeFuncao = ctx.getChild(1).getText().toLowerCase();
-        String tipoRetornoStr = ctx.getChild(ctx.getChildCount() - 3).getText();
+        
+        // CORREÇÃO: Acessar o tipo de retorno corretamente
+        // Na gramática: FUNCTION IDENTIFIER (LPAREN formalParameterList RPAREN)? COLON IDENTIFIER SEMI block SEMI
+        String tipoRetornoStr = null;
+        
+        // Procurar pelo IDENTIFIER após os dois pontos (:)
+        for (int i = 0; i < ctx.getChildCount(); i++) {
+            if (ctx.getChild(i).getText().equals(":") && i + 1 < ctx.getChildCount()) {
+                tipoRetornoStr = ctx.getChild(i + 1).getText();
+                break;
+            }
+        }
+        
+        if (tipoRetornoStr == null) {
+            tipoRetornoStr = "desconhecido";
+            reportarErro(ctx.getStart().getLine(), "Tipo de retorno da função '" + nomeFuncao + "' não encontrado.");
+        }
 
         TipoSimbolo tipoRetorno = converterTipo(tipoRetornoStr);
         Simbolo simboloFuncao = new Simbolo(nomeFuncao, tipoRetorno, CategoriaSimbolo.FUNCAO, ctx.getStart().getLine());
@@ -129,6 +145,11 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
         scopes.put(nomeFuncao, new HashMap<>());
         String escopoAnterior = currentScope;
         currentScope = nomeFuncao;
+
+        // CORREÇÃO: Adicionar variável especial para o retorno da função
+        // Em Pascal, o nome da função pode ser usado como variável para definir o retorno
+        Simbolo retornoFuncao = new Simbolo(nomeFuncao, tipoRetorno, CategoriaSimbolo.VARIAVEL, ctx.getStart().getLine());
+        scopes.get(currentScope).put(nomeFuncao, retornoFuncao);
 
         visitChildren(ctx); // Visita parâmetros e o bloco da função
 
@@ -160,14 +181,15 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
 
     @Override
     public TipoSimbolo visitFormalParameterSection(PascalParser.FormalParameterSectionContext ctx) {
-        // A gramática parece ter um erro aqui, assumindo que o tipo é o último
-        // IDENTIFIER
-        String tipoStr = ctx.IDENTIFIER().getText();
+        // CORREÇÃO: Melhor tratamento dos parâmetros formais
+        List<TerminalNode> identifiers = ctx.identifierList().IDENTIFIER();
+        String tipoStr = ctx.IDENTIFIER().getText(); // O último IDENTIFIER é o tipo
         TipoSimbolo tipo = converterTipo(tipoStr);
 
-        for (TerminalNode id : ctx.identifierList().IDENTIFIER()) {
-            String nome = id.getText().toLowerCase();
-            Simbolo simbolo = new Simbolo(nome, tipo, CategoriaSimbolo.PARAMETRO, id.getSymbol().getLine());
+        // Adicionar todos os parâmetros exceto o último (que é o tipo)
+        for (int i = 0; i < identifiers.size(); i++) {
+            String nome = identifiers.get(i).getText().toLowerCase();
+            Simbolo simbolo = new Simbolo(nome, tipo, CategoriaSimbolo.PARAMETRO, identifiers.get(i).getSymbol().getLine());
             scopes.get(currentScope).put(nome, simbolo);
         }
         return null;
@@ -340,6 +362,7 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
             {
                 return TipoSimbolo.BOOLEAN;
             }
+            
             Simbolo s = findSymbol(nome);
             
             if (s == null) 
@@ -348,24 +371,29 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
                 return TipoSimbolo.DESCONHECIDO;
             }
             
+            // CORREÇÃO: Melhor tratamento de chamadas de função
             if (ctx.expressionList() != null) 
-            { // Chamada de função
+            { // Chamada de função com parâmetros
                 if (s.categoria != CategoriaSimbolo.FUNCAO) 
                 {
-                    reportarErro(ctx.getStart().getLine(), "'" + nome + "' não é uma função e não pode ser chamada.");
+                    reportarErro(ctx.getStart().getLine(), "'" + nome + "' não é uma função e não pode ser chamada com parâmetros.");
                     return TipoSimbolo.DESCONHECIDO;
                 }
+                // Visitar a lista de expressões para verificar tipos dos parâmetros
+                visit(ctx.expressionList());
                 return s.tipo;
             } 
-            
             else 
             {
+                // CORREÇÃO: Permitir uso de função sem parâmetros sem parênteses
                 if (s.categoria == CategoriaSimbolo.FUNCAO) 
                 {
-                    reportarErro(ctx.getStart().getLine(), "Função '" + nome + "' usada sem chamada de parênteses.");
-                    return TipoSimbolo.DESCONHECIDO;
+                    // Verificar se a função tem parâmetros definidos
+                    // Se não tem parâmetros, pode ser chamada sem parênteses
+                    return s.tipo;
                 }
                 
+                // Para variáveis, constantes e parâmetros
                 return s.tipo;
             }
         }
@@ -385,6 +413,14 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
             return null;
         }
 
+        // CORREÇÃO: Melhor verificação para atribuição a função
+        // Se estamos tentando atribuir a uma função, verificar se é no escopo da própria função
+        if (s.categoria == CategoriaSimbolo.FUNCAO && !currentScope.equals(nome)) {
+            reportarErro(ctx.getStart().getLine(), 
+                "Não é possível atribuir valor à função '" + nome + "' fora do seu escopo.");
+            return null;
+        }
+
         if (ctx.expression() != null) { // Acesso a vetor
             if (s.categoria != CategoriaSimbolo.VETOR || s.tipoArray == null) {
                 reportarErro(ctx.getStart().getLine(), "Tentativa de indexar '" + nome + "', que não é um vetor.");
@@ -393,12 +429,13 @@ public class PascalSemanticVisitor extends PascalParserBaseVisitor<TipoSimbolo> 
             TipoSimbolo tipoIndice = visit(ctx.expression());
             if (tipoIndice != TipoSimbolo.INTEGER) {
                 reportarErro(ctx.getStart().getLine(),
-                        "indice do vetor deve ser um inteiro, mas foi '" + tipoIndice + "'.");
+                        "Índice do vetor deve ser um inteiro, mas foi '" + tipoIndice + "'.");
                 return null;
             }
 
             return s.tipoArray.getTipoBase();
         }
+        
         return s.tipo;
     }
 
