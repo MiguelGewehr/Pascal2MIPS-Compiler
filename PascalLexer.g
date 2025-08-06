@@ -1,5 +1,9 @@
 lexer grammar PascalLexer;
 
+@header{
+    package parser;
+}
+
 //Special-symbols
 PLUS: '+';
 MINUS: '-';

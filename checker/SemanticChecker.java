@@ -3,10 +3,6 @@ package checker;
 import org.antlr.v4.runtime.Token;
 
 import parser.PascalParser;
-import parser.PascalParser.Assign_stmtContext;
-import parser.PascalParser.ExprIdContext;
-import parser.PascalParser.ExprStrValContext;
-import parser.PascalParser.Read_stmtContext;
 import parser.PascalParserBaseVisitor;
 import tables.StrTable;
 import tables.VarTable;

@@ -2,6 +2,10 @@ parser grammar PascalParser;
 
 options { tokenVocab=PascalLexer; }
 
+@header{
+    package parser;
+}
+
 program: 
     PROGRAM IDENTIFIER (LPAREN identifierList RPAREN)? SEMI block DOT
 ;
