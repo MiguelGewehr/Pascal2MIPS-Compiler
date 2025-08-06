@@ -5,6 +5,13 @@ public class FuncEntry implements Entry {
     private final List<ParamEntry> parameters;
     
     public FuncEntry(String name, int line, Type returnType, List<ParamEntry> params) {
-        // Inicialização...
+        this.name = name;
+        this.line = line;
+        this.returnType = returnType;
+        this.parameters = params; 
     }
+
+    public String getName() { return name; }
+    public int getLine() { return line; }
+    public Type getVarType() { return varType; }
 }
