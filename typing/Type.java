@@ -7,7 +7,6 @@ public enum Type {
     CHAR, 
     STRING, 
     BOOLEAN, 
-    IDENTIFIER, 
     NO_TYPE;
 
 	@Override
@@ -18,7 +17,6 @@ public enum Type {
             case CHAR -> "char";
             case STRING -> "string";
             case BOOLEAN -> "boolean";
-            case IDENTIFIER -> "identifier";
             case NO_TYPE -> "Sem tipo";
         };
     }
