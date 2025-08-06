@@ -1,6 +1,7 @@
 package checker;
 
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 import parser.PascalParser;
 import parser.PascalParserBaseVisitor;
@@ -51,5 +52,48 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
     	System.out.print(vt);
     	System.out.print("\n\n");
     }
-    	
+    
+	@Override
+	public Void visitFactor(PascalParser.FactorContext ctx) {
+		// Caso 1: Verifica se é uma string e adiciona na tabela de strings
+		if (ctx.STRING() != null) {
+			String str = ctx.STRING().getText();
+			st.add(str);
+		}
+		
+		// Caso 2: Verifica se é uma variável (ID sem parênteses) e checa declaração
+		if (ctx.IDENTIFIER() != null && ctx.LPAREN() == null) {
+			checkVar(ctx.IDENTIFIER().getSymbol());
+		}
+		
+		// Continua a visitação padrão para outros casos (números, expressões entre parênteses, etc.)
+		return super.visitFactor(ctx);
+	}
+
+	@Override
+	public Void visitVarDeclaration(PascalParser.VarDeclarationContext ctx) {
+		// Obtém o tipo da declaração
+		lastDeclType = getTypeFromDenoter(ctx.typeDenoter());
+		
+		// Para cada variável na lista
+		for (TerminalNode id : ctx.identifierList().IDENTIFIER()) {
+			newVar(id.getSymbol());  // Adiciona à tabela de símbolos
+		}
+		return null;
+	}
+
+	private Type getTypeFromDenoter(PascalParser.TypeDenoterContext ctx) {
+		if (ctx.IDENTIFIER() != null) {
+			String typeName = ctx.IDENTIFIER().getText();
+			return Type.valueOf(typeName.toUpperCase());
+		}
+		return Type.NO_TYPE;  // Caso de array (não implementado)
+	}
+
+	@Override
+	public Void visitVariable(PascalParser.VariableContext ctx) {
+		checkVar(ctx.IDENTIFIER().getSymbol());  // Verifica se variável foi declarada
+		return super.visitVariable(ctx);
+	}
+
 }
