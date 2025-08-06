@@ -1,4 +1,8 @@
-public abstract class VarEntry implements Entry {
+package entries;
+
+import typing.Type;
+
+public class VarEntry implements Entry {
     protected final String name;
     protected final int line;
     protected final Type varType;
@@ -9,7 +13,12 @@ public abstract class VarEntry implements Entry {
         this.varType = varType;
     }
 
+    @Override
     public String getName() { return name; }
+    
+    @Override
     public int getLine() { return line; }
-    public Type getVarType() { return varType; }
+    
+    @Override
+    public Type getEntryType() { return varType; }
 }
