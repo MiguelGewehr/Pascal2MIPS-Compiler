@@ -2,21 +2,20 @@ package entries;
 
 import typing.Type;
 
+/**
+ * Entrada para variáveis do tipo array na tabela de símbolos.
+ */
 public class ArrayEntry implements Entry {
     private final String name;
     private final int line;
-    private final Type elementType;
-    private final int start;
-    private final int end;
-
-    public ArrayEntry(String name, int line, Type elementType, int start, int end) {
+    private final Type.ArrayType arrayType;
+    
+    public ArrayEntry(String name, int line, Type.ArrayType arrayType) {
         this.name = name;
         this.line = line;
-        this.elementType = elementType;
-        this.start = start;
-        this.end = end;
+        this.arrayType = arrayType;
     }
-
+    
     @Override
     public String getName() { return name; }
     
@@ -24,9 +23,28 @@ public class ArrayEntry implements Entry {
     public int getLine() { return line; }
     
     @Override
-    public Type getEntryType() { return elementType; }
+    public Type getEntryType() { return Type.ARRAY; }
     
-    public Type getElementType() { return elementType; }
-    public int getStart() { return start; }
-    public int getEnd() { return end; }
+    public Type.ArrayType getArrayType() { return arrayType; }
+    
+    public Type getElementType() { return arrayType.getElementType(); }
+    
+    public int getStartIndex() { return arrayType.getStartIndex(); }
+    
+    public int getEndIndex() { return arrayType.getEndIndex(); }
+    
+    public int getArraySize() { return arrayType.getSize(); }
+    
+    /**
+     * Verifica se um índice está dentro dos limites do array
+     */
+    public boolean isValidIndex(int index) {
+        return index >= arrayType.getStartIndex() && index <= arrayType.getEndIndex();
+    }
+    
+    @Override
+    public String toString() {
+        return String.format("ArrayEntry{name='%s', line=%d, type=%s}", 
+                           name, line, arrayType.toString());
+    }
 }
