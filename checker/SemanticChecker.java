@@ -14,19 +14,61 @@ import java.util.List;
 
 /**
  * Analisador semântico de Pascal implementado como um visitor da ParseTree do ANTLR.
- * Versão melhorada com suporte completo para arrays.
+ * Versão corrigida mantendo verificação de tipos.
  */
-public class SemanticChecker extends PascalParserBaseVisitor<Void> {
+public class SemanticChecker extends PascalParserBaseVisitor<Type> {
     
-    private StrTable st = new StrTable(); // Tabela de strings (ainda útil para otimização)
+    private StrTable st = new StrTable();
     private SymbolTable symbolTable = new SymbolTable();
-    private Type lastDeclType; // Para tipos primitivos
-    private Type.ArrayType lastArrayType; // Para tipos array
+    private Type lastDeclType;
+    private Type.ArrayType lastArrayType;
+    
+    // Classe interna para armazenar informações de tipo inferidas
+    private static class TypeInfo {
+        Type type;
+        Type.ArrayType arrayType; // Para quando type == ARRAY
+        
+        TypeInfo(Type type) {
+            this.type = type;
+            this.arrayType = null;
+        }
+        
+        TypeInfo(Type.ArrayType arrayType) {
+            this.type = Type.ARRAY;
+            this.arrayType = arrayType;
+        }
+        
+        @Override
+        public String toString() {
+            return type == Type.ARRAY && arrayType != null ? 
+                   arrayType.toString() : type.toString();
+        }
+    }
 
     /**
-     * Testa se o dado token foi declarado antes.
+     * Construtor - inicializa procedimentos e funções built-in
      */
-    private void checkVar(Token token) {
+    public SemanticChecker() {
+        initializeBuiltins();
+    }
+    
+    /**
+     * Inicializa procedimentos e funções built-in do Pascal
+     */
+    private void initializeBuiltins() {
+        // Procedimentos built-in
+        symbolTable.addEntry("writeln", new FuncEntry("writeln", 0, Type.NO_TYPE, new ArrayList<>()));
+        symbolTable.addEntry("write", new FuncEntry("write", 0, Type.NO_TYPE, new ArrayList<>()));
+        symbolTable.addEntry("readln", new FuncEntry("readln", 0, Type.NO_TYPE, new ArrayList<>()));
+        symbolTable.addEntry("read", new FuncEntry("read", 0, Type.NO_TYPE, new ArrayList<>()));
+        
+        System.out.println("DEBUG: Built-in procedures initialized");
+    }
+
+    /**
+     * Testa se o dado token foi declarado antes e retorna seu tipo.
+     */
+    private TypeInfo checkVar(Token token) {
         String text = token.getText();
         int line = token.getLine();
         Entry entry = symbolTable.lookupEntry(text);
@@ -34,6 +76,13 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
         if (entry == null) {
             System.err.printf("SEMANTIC ERROR (%d): variable '%s' was not declared.\n", line, text);
             System.exit(1);
+        }
+        
+        if (entry instanceof ArrayEntry) {
+            ArrayEntry arrayEntry = (ArrayEntry) entry;
+            return new TypeInfo(arrayEntry.getArrayType());
+        } else {
+            return new TypeInfo(entry.getEntryType());
         }
     }
 
@@ -54,10 +103,8 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
         
         Entry entry;
         if (lastDeclType == Type.ARRAY && lastArrayType != null) {
-            // Cria entrada de array
             entry = new ArrayEntry(text, line, lastArrayType);
         } else {
-            // Cria entrada de variável normal
             entry = new VarEntry(text, line, lastDeclType);
         }
         
@@ -71,7 +118,6 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
         String text = token.getText();
         int line = token.getLine();
         
-        // Verifica se já existe no escopo atual
         Entry existing = symbolTable.lookupCurrentScope(text);
         if (existing != null) {
             System.err.printf("SEMANTIC ERROR (%d): constant '%s' already declared at line %d.\n", 
@@ -79,17 +125,15 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
             System.exit(1);
         }
         
-        // Constantes não podem ser arrays
         ConstEntry constEntry = new ConstEntry(text, line, lastDeclType, value);
         symbolTable.addEntry(text, constEntry);
     }
     
     /**
-     * Valida acesso a array
+     * Valida acesso a array e retorna o tipo do elemento
      */
-    private void checkArrayAccess(Token arrayToken, PascalParser.ExpressionContext indexExpr) {
+    private TypeInfo checkArrayAccess(Token arrayToken, Type indexType, int line) {
         String arrayName = arrayToken.getText();
-        int line = arrayToken.getLine();
         
         Entry entry = symbolTable.lookupEntry(arrayName);
         if (entry == null) {
@@ -102,10 +146,15 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
             System.exit(1);
         }
         
-        // TODO: Aqui poderia implementar verificação de tipos da expressão do índice
-        // Por enquanto, apenas verifica se o array existe e é realmente um array
+        // Verifica se o índice é do tipo correto (integer)
+        if (indexType != Type.INTEGER) {
+            System.err.printf("SEMANTIC ERROR (%d): array index must be integer, got '%s'.\n", 
+                             line, indexType.toString());
+            System.exit(1);
+        }
         
-        System.out.println("DEBUG: Valid array access to " + arrayName);
+        ArrayEntry arrayEntry = (ArrayEntry) entry;
+        return new TypeInfo(arrayEntry.getElementType());
     }
 
     /**
@@ -120,54 +169,57 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
     }
     
     @Override
-    public Void visitProgram(PascalParser.ProgramContext ctx) {
+    public Type visitProgram(PascalParser.ProgramContext ctx) {
         System.out.println("DEBUG: Visiting program");
-        return super.visitProgram(ctx);
+        visit(ctx.block());
+        return Type.NO_TYPE;
     }
     
     @Override
-    public Void visitBlock(PascalParser.BlockContext ctx) {
+    public Type visitBlock(PascalParser.BlockContext ctx) {
         System.out.println("DEBUG: Visiting block");
         
-        // Visita as seções na ordem correta
+        // Processa seções na ordem correta
         if (ctx.constSection() != null) {
-            System.out.println("DEBUG: Visiting const section");
             visit(ctx.constSection());
         }
         
         if (ctx.varSection() != null) {
-            System.out.println("DEBUG: Visiting var section");
             visit(ctx.varSection());
         }
         
-        // Visita declarações de subrotinas
+        // Processa declarações de subrotinas
         for (PascalParser.SubroutineDeclarationPartContext subCtx : ctx.subroutineDeclarationPart()) {
             visit(subCtx);
         }
         
-        // Visita o statement composto
+        // Processa o statement composto
         if (ctx.compoundStatement() != null) {
-            System.out.println("DEBUG: Visiting compound statement");
             visit(ctx.compoundStatement());
         }
         
-        return null;
+        return Type.NO_TYPE;
     }
     
     @Override
-    public Void visitProcedureDeclaration(PascalParser.ProcedureDeclarationContext ctx) {
+    public Type visitProcedureDeclaration(PascalParser.ProcedureDeclarationContext ctx) {
         String procName = ctx.IDENTIFIER().getText();
         int line = ctx.IDENTIFIER().getSymbol().getLine();
         
         System.out.println("DEBUG: Declaring procedure: " + procName);
         
-        FuncEntry procEntry = new FuncEntry(procName, line, Type.NO_TYPE, new ArrayList<>());
-        
-        if (!symbolTable.addEntry(procName, procEntry)) {
-            System.err.printf("SEMANTIC ERROR (%d): procedure '%s' already declared.\n", line, procName);
+        // Verifica redeclaração
+        Entry existing = symbolTable.lookupCurrentScope(procName);
+        if (existing != null) {
+            System.err.printf("SEMANTIC ERROR (%d): procedure '%s' already declared at line %d.\n", 
+                             line, procName, existing.getLine());
             System.exit(1);
         }
         
+        FuncEntry procEntry = new FuncEntry(procName, line, Type.NO_TYPE, new ArrayList<>());
+        symbolTable.addEntry(procName, procEntry);
+        
+        // Abre novo escopo para a procedure
         symbolTable.openScope(procName + "_PROC");
         
         if (ctx.formalParameterList() != null) {
@@ -177,25 +229,36 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
         visit(ctx.block());
         symbolTable.closeScope();
         
-        return null;
+        return Type.NO_TYPE;
     }
     
     @Override
-    public Void visitFunctionDeclaration(PascalParser.FunctionDeclarationContext ctx) {
+    public Type visitFunctionDeclaration(PascalParser.FunctionDeclarationContext ctx) {
         String funcName = ctx.IDENTIFIER(0).getText();
         String returnTypeName = ctx.IDENTIFIER(1).getText();
         int line = ctx.IDENTIFIER(0).getSymbol().getLine();
         
         System.out.println("DEBUG: Declaring function: " + funcName);
         
-        Type returnType = getTypeFromName(returnTypeName);
-        FuncEntry funcEntry = new FuncEntry(funcName, line, returnType, new ArrayList<>());
-        
-        if (!symbolTable.addEntry(funcName, funcEntry)) {
-            System.err.printf("SEMANTIC ERROR (%d): function '%s' already declared.\n", line, funcName);
+        // Verifica redeclaração
+        Entry existing = symbolTable.lookupCurrentScope(funcName);
+        if (existing != null) {
+            System.err.printf("SEMANTIC ERROR (%d): function '%s' already declared at line %d.\n", 
+                             line, funcName, existing.getLine());
             System.exit(1);
         }
         
+        Type returnType = getTypeFromName(returnTypeName);
+        if (returnType == Type.NO_TYPE) {
+            System.err.printf("SEMANTIC ERROR (%d): unknown return type '%s' for function '%s'.\n", 
+                             line, returnTypeName, funcName);
+            System.exit(1);
+        }
+        
+        FuncEntry funcEntry = new FuncEntry(funcName, line, returnType, new ArrayList<>());
+        symbolTable.addEntry(funcName, funcEntry);
+        
+        // Abre novo escopo para a function
         symbolTable.openScope(funcName + "_FUNC");
         
         if (ctx.formalParameterList() != null) {
@@ -205,14 +268,18 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
         visit(ctx.block());
         symbolTable.closeScope();
         
-        return null;
+        return Type.NO_TYPE;
     }
     
     @Override
-    public Void visitFormalParameterSection(PascalParser.FormalParameterSectionContext ctx) {
+    public Type visitFormalParameterSection(PascalParser.FormalParameterSectionContext ctx) {
         String typeName = ctx.IDENTIFIER().getText();
         Type paramType = getTypeFromName(typeName);
-        lastDeclType = paramType;
+        
+        if (paramType == Type.NO_TYPE) {
+            System.err.printf("SEMANTIC ERROR: unknown parameter type '%s'.\n", typeName);
+            System.exit(1);
+        }
         
         System.out.println("DEBUG: Declaring parameters of type: " + paramType);
         
@@ -220,41 +287,30 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
             String paramName = id.getText();
             int line = id.getSymbol().getLine();
             
-            ParamEntry paramEntry = new ParamEntry(paramName, line, paramType, false);
-            
-            if (!symbolTable.addEntry(paramName, paramEntry)) {
-                System.err.printf("SEMANTIC ERROR (%d): parameter '%s' already declared.\n", line, paramName);
+            // Verifica redeclaração no escopo atual
+            Entry existing = symbolTable.lookupCurrentScope(paramName);
+            if (existing != null) {
+                System.err.printf("SEMANTIC ERROR (%d): parameter '%s' already declared at line %d.\n", 
+                                 line, paramName, existing.getLine());
                 System.exit(1);
             }
+            
+            ParamEntry paramEntry = new ParamEntry(paramName, line, paramType, false);
+            symbolTable.addEntry(paramName, paramEntry);
         }
         
-        return null;
+        return Type.NO_TYPE;
     }
 
     @Override
-    public Void visitFactor(PascalParser.FactorContext ctx) {
-        // Caso 1: String literal
-        if (ctx.STRING() != null) {
-            String str = ctx.STRING().getText();
-            st.add(str);
-        }
-
-        // Caso 2: Variável simples (ID sem parênteses)
-        if (ctx.IDENTIFIER() != null && ctx.LPAREN() == null) {
-            checkVar(ctx.IDENTIFIER().getSymbol());
-        }
-
-        return super.visitFactor(ctx);
-    }
-
-    @Override
-    public Void visitVarSection(PascalParser.VarSectionContext ctx) {
+    public Type visitVarSection(PascalParser.VarSectionContext ctx) {
         System.out.println("DEBUG: Processing var section with " + ctx.varDeclaration().size() + " declarations");
-        return super.visitVarSection(ctx);
+        super.visitVarSection(ctx);
+        return Type.NO_TYPE;
     }
 
     @Override
-    public Void visitVarDeclaration(PascalParser.VarDeclarationContext ctx) {
+    public Type visitVarDeclaration(PascalParser.VarDeclarationContext ctx) {
         System.out.println("DEBUG: Processing var declaration");
         
         // Processa o tipo da declaração
@@ -267,29 +323,166 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
             System.out.println("DEBUG: Declaring variable: " + id.getText());
             newVar(id.getSymbol());
         }
-        return null;
+        return Type.NO_TYPE;
     }
     
     @Override
-    public Void visitConstSection(PascalParser.ConstSectionContext ctx) {
+    public Type visitConstSection(PascalParser.ConstSectionContext ctx) {
         System.out.println("DEBUG: Processing const section");
-        return super.visitConstSection(ctx);
+        super.visitConstSection(ctx);
+        return Type.NO_TYPE;
     }
     
     @Override
-    public Void visitConstDefinition(PascalParser.ConstDefinitionContext ctx) {
+    public Type visitConstDefinition(PascalParser.ConstDefinitionContext ctx) {
         System.out.println("DEBUG: Processing const definition: " + ctx.IDENTIFIER().getText());
         
-        // TODO: avaliar a constante para obter o valor e tipo real
-        lastDeclType = Type.INTEGER; // Por enquanto, assumindo integer
+        // Visita a constante para determinar seu tipo
+        Type constType = visit(ctx.constant());
+        lastDeclType = constType;
         lastArrayType = null; // Constantes não são arrays
         
         Token constToken = ctx.IDENTIFIER().getSymbol();
-        Object value = null; // TODO: extrair valor da constante
+        Object value = null; // TODO: extrair valor real da constante
         
         newConst(constToken, value);
         
-        return super.visitConstDefinition(ctx);
+        return Type.NO_TYPE;
+    }
+
+    @Override
+    public Type visitConstant(PascalParser.ConstantContext ctx) {
+        if (ctx.signedNumber() != null) {
+            return visit(ctx.signedNumber());
+        } else if (ctx.CHARACTER() != null) {
+            return Type.CHAR;
+        } else if (ctx.STRING() != null) {
+            st.add(ctx.STRING().getText());
+            return Type.STRING;
+        } else if (ctx.IDENTIFIER() != null) {
+            // Referência a outra constante
+            TypeInfo typeInfo = checkVar(ctx.IDENTIFIER().getSymbol());
+            return typeInfo.type;
+        }
+        return Type.NO_TYPE;
+    }
+
+    @Override
+    public Type visitSignedNumber(PascalParser.SignedNumberContext ctx) {
+        if (ctx.INTEGER() != null) {
+            return Type.INTEGER;
+        } else if (ctx.REAL() != null) {
+            return Type.REAL;
+        }
+        return Type.NO_TYPE;
+    }
+
+    @Override
+    public Type visitVariable(PascalParser.VariableContext ctx) {
+        if (ctx.LBRACK() != null) {
+            // Acesso a array: IDENTIFIER[expression]
+            Type indexType = visit(ctx.expression());
+            TypeInfo resultType = checkArrayAccess(ctx.IDENTIFIER().getSymbol(), indexType, 
+                                                  ctx.IDENTIFIER().getSymbol().getLine());
+            return resultType.type;
+        } else {
+            // Variável simples
+            TypeInfo typeInfo = checkVar(ctx.IDENTIFIER().getSymbol());
+            return typeInfo.type;
+        }
+    }
+
+    @Override
+    public Type visitFactor(PascalParser.FactorContext ctx) {
+        if (ctx.IDENTIFIER() != null) {
+            if (ctx.LPAREN() != null) {
+                // Chamada de função
+                return checkFunctionCall(ctx.IDENTIFIER().getSymbol(), ctx.expressionList());
+            } else {
+                // Variável simples
+                TypeInfo typeInfo = checkVar(ctx.IDENTIFIER().getSymbol());
+                return typeInfo.type;
+            }
+        } else if (ctx.INTEGER() != null) {
+            return Type.INTEGER;
+        } else if (ctx.REAL() != null) {
+            return Type.REAL;
+        } else if (ctx.CHARACTER() != null) {
+            return Type.CHAR;
+        } else if (ctx.STRING() != null) {
+            st.add(ctx.STRING().getText());
+            return Type.STRING;
+        } else if (ctx.LPAREN() != null) {
+            // Expressão entre parênteses
+            return visit(ctx.expression());
+        } else if (ctx.NOT() != null) {
+            // Negação lógica - CORREÇÃO APLICADA AQUI
+            Type factorType = visit(ctx.factor()); // Sem o (0)
+            if (factorType != Type.BOOLEAN) {
+                System.err.printf("SEMANTIC ERROR (%d): 'not' operator requires boolean operand, got '%s'.\n", 
+                                 ctx.NOT().getSymbol().getLine(), factorType.toString());
+                System.exit(1);
+            }
+            return Type.BOOLEAN;
+        }
+        
+        return Type.NO_TYPE;
+    }
+    
+    /**
+     * Verifica chamada de função e retorna seu tipo de retorno
+     */
+    private Type checkFunctionCall(Token functionToken, PascalParser.ExpressionListContext exprList) {
+        String functionName = functionToken.getText();
+        int line = functionToken.getLine();
+        
+        Entry entry = symbolTable.lookupEntry(functionName);
+        if (entry == null) {
+            System.err.printf("SEMANTIC ERROR (%d): function '%s' was not declared.\n", line, functionName);
+            System.exit(1);
+        }
+        
+        if (!(entry instanceof FuncEntry)) {
+            System.err.printf("SEMANTIC ERROR (%d): '%s' is not a function.\n", line, functionName);
+            System.exit(1);
+        }
+        
+        FuncEntry funcEntry = (FuncEntry) entry;
+        
+        // Verifica se é uma função (tem tipo de retorno) ou procedure (não tem)
+        if (funcEntry.getEntryType() == Type.NO_TYPE) {
+            System.err.printf("SEMANTIC ERROR (%d): '%s' is a procedure, cannot be used in expression.\n", 
+                             line, functionName);
+            System.exit(1);
+        }
+        
+        System.out.println("DEBUG: Function call to " + functionName + " with return type " + 
+                          funcEntry.getEntryType());
+        
+        return funcEntry.getEntryType();
+    }
+    
+    @Override
+    public Type visitProcedureCall(PascalParser.ProcedureCallContext ctx) {
+        String procName = ctx.IDENTIFIER().getText();
+        int line = ctx.IDENTIFIER().getSymbol().getLine();
+        
+        Entry entry = symbolTable.lookupEntry(procName);
+        if (entry == null) {
+            System.err.printf("SEMANTIC ERROR (%d): procedure '%s' was not declared.\n", line, procName);
+            System.exit(1);
+        }
+        
+        if (!(entry instanceof FuncEntry)) {
+            System.err.printf("SEMANTIC ERROR (%d): '%s' is not a procedure or function.\n", line, procName);
+            System.exit(1);
+        }
+        
+        FuncEntry funcEntry = (FuncEntry) entry;
+        
+        System.out.println("DEBUG: Procedure call to " + procName);
+        
+        return Type.NO_TYPE;
     }
 
     /**
@@ -301,6 +494,11 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
             String typeName = ctx.IDENTIFIER().getText();
             lastDeclType = getTypeFromName(typeName);
             lastArrayType = null;
+            
+            if (lastDeclType == Type.NO_TYPE) {
+                System.err.printf("SEMANTIC ERROR: unknown type '%s'.\n", typeName);
+                System.exit(1);
+            }
         } else if (ctx.arrayType() != null) {
             // Tipo array
             lastDeclType = Type.ARRAY;
@@ -331,9 +529,14 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
         Type elementType;
         if (ctx.typeDenoter().IDENTIFIER() != null) {
             elementType = getTypeFromName(ctx.typeDenoter().IDENTIFIER().getText());
+            if (elementType == Type.NO_TYPE) {
+                System.err.printf("SEMANTIC ERROR: unknown array element type '%s'.\n", 
+                                 ctx.typeDenoter().IDENTIFIER().getText());
+                System.exit(1);
+            }
         } else {
-            // TODO: Array de array (multidimensional) - por enquanto não suportado
-            System.err.println("SEMANTIC ERROR: Multidimensional arrays not yet supported.");
+            // Array multidimensional - por enquanto não suportado completamente
+            System.err.println("SEMANTIC ERROR: Multidimensional arrays not yet fully supported.");
             System.exit(1);
             elementType = Type.NO_TYPE;
         }
@@ -351,7 +554,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
         if (ctx.INTEGER() != null) {
             numberText = ctx.INTEGER().getText();
         } else {
-            // Para REAL, pega só a parte inteira (pode haver problemas aqui)
+            // Para REAL, pega só a parte inteira
             numberText = ctx.REAL().getText().split("\\.")[0];
         }
         
@@ -365,6 +568,9 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
         return number;
     }
     
+    /**
+     * Converte nome de tipo em enum Type
+     */
     private Type getTypeFromName(String typeName) {
         return switch (typeName.toLowerCase()) {
             case "integer" -> Type.INTEGER;
@@ -376,15 +582,6 @@ public class SemanticChecker extends PascalParserBaseVisitor<Void> {
         };
     }
 
-    @Override
-    public Void visitVariable(PascalParser.VariableContext ctx) {
-        if (ctx.LBRACK() != null) {
-            // Acesso a array: IDENTIFIER[expression]
-            checkArrayAccess(ctx.IDENTIFIER().getSymbol(), ctx.expression());
-        } else {
-            // Variável simples
-            checkVar(ctx.IDENTIFIER().getSymbol());
-        }
-        return super.visitVariable(ctx);
-    }
+    // Adicione outros métodos visit conforme necessário para expressões, statements, etc.
+    // Mantendo a compatibilidade com a versão original mas com as correções aplicadas
 }
