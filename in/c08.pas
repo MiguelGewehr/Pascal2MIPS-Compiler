@@ -1,26 +1,26 @@
-{ Sample program in Pascal -
-  silly program to handle some corner cases.
-}
-
-program c09;
+program c08;
 var
-    xxxx: integer;
-    yyy: integer;
-    longidentifier: integer;
-    mensagem: string;  { Declaração da string }
+  result: integer;
+
+function factorial(n: integer): integer;
+begin
+  { Função recursiva para calcular fatorial }
+  if n <= 1 then
+    factorial := 1
+  else
+    factorial := n * factorial(n - 1)
+end;
+
+function max(a, b: integer): integer;
+begin
+  { Função para retornar o maior valor }
+  if a > b then
+    max := a
+  else
+    max := b
+end;
 
 begin
-    mensagem := 'Esta é uma string declarada previamente.';
-    
-    writeln('Silly program.');
-    writeln(4 + 3 * 2);             { Should write 10 not 14. }
-    writeln('Silly program.');     { Should produce one entry in table. }
-    
-    xxxx := 4;
-    longidentifier := 4;
-    yyy := longidentifier;
-    
-    writeln((xxxx * yyy) div longidentifier); { Should write 4. }
-
-    writeln(mensagem);  { Impressão da string declarada }
+  result := factorial(5);    { result = 120 }
+  result := max(10, 20);     { result = 20 }
 end.

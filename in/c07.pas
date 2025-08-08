@@ -1,19 +1,26 @@
-{ Sample program in Pascal - computes the GCD of two numbers }
 program c07;
 var
-    u, v, temp: integer;
+  x, y: integer;
+
+procedure swap(var a, b: integer);
+var
+  temp: integer;
 begin
-    read(u);
-    read(v); { input two integers }
-    
-    if v = 0 then
-        { do nothing }
-    else
-        repeat
-            temp := v;
-            v := u - (u div v) * v; { usando div para divisão inteira }
-            u := temp;
-        until v = 0;
-    
-    write(u); { output gcd of original u & v }
+  { Procedimento para trocar valores }
+  temp := a;
+  a := b;
+  b := temp
+end;
+
+procedure increment(var n: integer);
+begin
+  { Procedimento para incrementar }
+  n := n + 1
+end;
+
+begin
+  x := 10;
+  y := 20;
+  swap(x, y);        { x=20, y=10 }
+  increment(x);      { x=21 }
 end.

@@ -1,8 +1,9 @@
 program synerr01;
 var
-  a, b integer; { Erro: falta de dois pontos ":" antes do tipo}
+  x: integer
+  y: integer;  { ERRO: falta ponto e vírgula após declaração de x }
 begin
-  a := 10;
-  b := 20;
-  writeln('Soma: ', a + b);
+  x := 10;
+  if x > 0    { ERRO: falta 'then' }
+    x := 20;
 end.

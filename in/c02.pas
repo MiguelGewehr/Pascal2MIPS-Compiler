@@ -1,12 +1,16 @@
-{ Sample program in Pascal -
-  adds one to the input
-}
-
 program c02;
 var
-    x: integer;
+  a, b: integer;
+  result: boolean;
 begin
-    readln(x);
-    x := x + 1;
-    writeln(x);
+  { Teste de operações de comparação }
+  a := 10;
+  b := 5;
+  
+  result := a = b;   { Igualdade }
+  result := a <> b;  { Diferença }
+  result := a < b;   { Menor que }
+  result := a > b;   { Maior que }
+  result := a <= b;  { Menor ou igual }
+  result := a >= b;  { Maior ou igual }
 end.

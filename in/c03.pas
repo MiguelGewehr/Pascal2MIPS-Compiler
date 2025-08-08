@@ -1,11 +1,15 @@
-{ Sample program in Pascal -
-  basic arithmetic operations.
-}
-
 program c03;
+var
+  p, q, result: boolean;
 begin
-    writeln('4 + 2 = ', 4 + 2);
-    writeln('5 - 2 = ', 5 - 2);
-    writeln('4 * 2 = ', 4 * 2);
-    writeln('4 / 2 = ', 4 / 2:0:2);
+  { Teste de operações lógicas }
+  p := true;
+  q := false;
+  
+  result := p and q;  { E lógico }
+  result := p or q;   { OU lógico }
+  result := not p;    { NÃO lógico }
+  
+  { Expressões compostas }
+  result := (p and q) or (not p);
 end.
