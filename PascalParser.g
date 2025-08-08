@@ -35,7 +35,7 @@ constDefinition:
 ;
 
 constant: 
-    signedNumber | CHARACTER | STRING | IDENTIFIER 
+    signedNumber | CHARACTER | STRING | IDENTIFIER | TRUE | FALSE
 ;
 
 signedNumber: 
@@ -105,8 +105,6 @@ statement:
     | ifStatement
     | whileStatement
     | emptyStatement
-    | repeatStatement
-    | forStatement 
 ;
 
 assignmentStatement: 
@@ -164,12 +162,4 @@ expressionItem:
 
 formattedExpression: 
     expression COLON INTEGER COLON INTEGER
-;
-
-repeatStatement: 
-    REPEAT statementList UNTIL expression
-;
-
-forStatement:
-    FOR assignmentStatement (TO | DOWNTO) expression DO statement
 ;
