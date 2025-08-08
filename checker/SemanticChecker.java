@@ -566,4 +566,284 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
             default -> Type.NO_TYPE;
         };
     }
+
+    @Override
+    public Type visitAssignmentStatement(PascalParser.AssignmentStatementContext ctx) {
+        // Obtém o tipo da variável de destino
+        Type varType = visit(ctx.variable());
+        
+        // Obtém o tipo da expressão do lado direito
+        Type exprType = visit(ctx.expression());
+        
+        // Verifica compatibilidade de tipos para atribuição
+        Type resultType = varType.unifyAssignment(exprType);
+        
+        if (resultType == Type.NO_TYPE) {
+            int line = ctx.ASSIGN().getSymbol().getLine();
+            System.err.printf("SEMANTIC ERROR (%d): cannot assign '%s' to '%s'.\n", 
+                            line, exprType.toString(), varType.toString());
+            System.exit(1);
+        }
+        
+        return Type.NO_TYPE;
+    }
+
+        // Método para verificar expressões (comparações)
+    @Override
+    public Type visitExpression(PascalParser.ExpressionContext ctx) {
+        Type leftType = visit(ctx.simpleExpression(0));
+        
+        // Se não há operador de comparação, retorna o tipo da expressão simples
+        if (ctx.simpleExpression().size() == 1) {
+            return leftType;
+        }
+        
+        // Há operador de comparação
+        Type rightType = visit(ctx.simpleExpression(1));
+        Type resultType = leftType.unifyComparison(rightType);
+        
+        if (resultType == Type.NO_TYPE) {
+            // Determina qual operador foi usado para a mensagem de erro
+            String operator = "comparison";
+            if (ctx.EQUAL() != null) operator = "=";
+            else if (ctx.NOTEQUAL() != null) operator = "<>";
+            else if (ctx.LESS() != null) operator = "<";
+            else if (ctx.GREATER() != null) operator = ">";
+            else if (ctx.LESSEQUAL() != null) operator = "<=";
+            else if (ctx.GREATEREQUAL() != null) operator = ">=";
+            
+            int line = getComparisonOperatorLine(ctx);
+            System.err.printf("SEMANTIC ERROR (%d): operator '%s' cannot be applied to '%s' and '%s'.\n", 
+                            line, operator, leftType.toString(), rightType.toString());
+            System.exit(1);
+        }
+        
+        return resultType; // Sempre BOOLEAN para comparações válidas
+    }
+
+    // Método auxiliar para obter a linha do operador de comparação
+    private int getComparisonOperatorLine(PascalParser.ExpressionContext ctx) {
+        if (ctx.EQUAL() != null) return ctx.EQUAL().getSymbol().getLine();
+        if (ctx.NOTEQUAL() != null) return ctx.NOTEQUAL().getSymbol().getLine();
+        if (ctx.LESS() != null) return ctx.LESS().getSymbol().getLine();
+        if (ctx.GREATER() != null) return ctx.GREATER().getSymbol().getLine();
+        if (ctx.LESSEQUAL() != null) return ctx.LESSEQUAL().getSymbol().getLine();
+        if (ctx.GREATEREQUAL() != null) return ctx.GREATEREQUAL().getSymbol().getLine();
+        return ctx.start.getLine(); // fallback
+    }
+
+    // Método para verificar expressões simples (+, -, OR)
+    @Override
+    public Type visitSimpleExpression(PascalParser.SimpleExpressionContext ctx) {
+        Type currentType = visit(ctx.term(0));
+        
+        // Processa os operadores da esquerda para a direita
+        for (int i = 1; i < ctx.term().size(); i++) {
+            Type rightType = visit(ctx.term(i));
+            String operator;
+            int operatorLine;
+            
+            // Determina qual operador foi usado (baseado na posição)
+            if (ctx.PLUS() != null && ctx.PLUS().size() >= i) {
+                operator = "+";
+                operatorLine = ctx.PLUS(i-1).getSymbol().getLine();
+                currentType = currentType.unifyArithmetic(rightType);
+            } else if (ctx.MINUS() != null && ctx.MINUS().size() >= i) {
+                operator = "-";
+                operatorLine = ctx.MINUS(i-1).getSymbol().getLine();
+                currentType = currentType.unifyArithmetic(rightType);
+            } else if (ctx.OR() != null && ctx.OR().size() >= i) {
+                operator = "or";
+                operatorLine = ctx.OR(i-1).getSymbol().getLine();
+                currentType = currentType.unifyLogical(rightType);
+            } else {
+                // Fallback - determina o operador pela análise dos tokens
+                operator = getSimpleExpressionOperator(ctx, i-1);
+                operatorLine = ctx.start.getLine();
+                
+                // Tenta ambos os tipos de unificação
+                Type arithmeticResult = currentType.unifyArithmetic(rightType);
+                Type logicalResult = currentType.unifyLogical(rightType);
+                
+                if (arithmeticResult != Type.NO_TYPE) {
+                    currentType = arithmeticResult;
+                } else if (logicalResult != Type.NO_TYPE) {
+                    currentType = logicalResult;
+                } else {
+                    currentType = Type.NO_TYPE;
+                }
+            }
+            
+            if (currentType == Type.NO_TYPE) {
+                System.err.printf("SEMANTIC ERROR (%d): operator '%s' cannot be applied to operands.\n", 
+                                operatorLine, operator);
+                System.exit(1);
+            }
+        }
+        
+        return currentType;
+    }
+
+    // Método auxiliar para identificar operador em simpleExpression
+    private String getSimpleExpressionOperator(PascalParser.SimpleExpressionContext ctx, int index) {
+        // Esta é uma aproximação - em um parser real você teria acesso direto aos tokens
+        if (ctx.PLUS() != null && index < ctx.PLUS().size()) return "+";
+        if (ctx.MINUS() != null && index < ctx.MINUS().size()) return "-";
+        if (ctx.OR() != null && index < ctx.OR().size()) return "or";
+        return "unknown";
+    }
+
+    // Método para verificar termos (*, /, DIV, MOD, AND)
+    @Override
+    public Type visitTerm(PascalParser.TermContext ctx) {
+        Type currentType = visit(ctx.factor(0));
+        
+        // Processa os operadores da esquerda para a direita
+        for (int i = 1; i < ctx.factor().size(); i++) {
+            Type rightType = visit(ctx.factor(i));
+            String operator;
+            int operatorLine;
+            Type resultType = Type.NO_TYPE;
+            
+            // Determina qual operador foi usado e faz a verificação apropriada
+            if (ctx.STAR() != null && ctx.STAR().size() >= i) {
+                operator = "*";
+                operatorLine = ctx.STAR(i-1).getSymbol().getLine();
+                resultType = currentType.unifyArithmetic(rightType);
+            } else if (ctx.SLASH() != null && ctx.SLASH().size() >= i) {
+                operator = "/";
+                operatorLine = ctx.SLASH(i-1).getSymbol().getLine();
+                resultType = currentType.unifyArithmetic(rightType);
+                // Divisão real sempre retorna REAL
+                if (resultType != Type.NO_TYPE) {
+                    resultType = Type.REAL;
+                }
+            } else if (ctx.DIV() != null && ctx.DIV().size() >= i) {
+                operator = "div";
+                operatorLine = ctx.DIV(i-1).getSymbol().getLine();
+                // DIV só funciona com inteiros
+                if (currentType == Type.INTEGER && rightType == Type.INTEGER) {
+                    resultType = Type.INTEGER;
+                }
+            } else if (ctx.MOD() != null && ctx.MOD().size() >= i) {
+                operator = "mod";
+                operatorLine = ctx.MOD(i-1).getSymbol().getLine();
+                // MOD só funciona com inteiros
+                if (currentType == Type.INTEGER && rightType == Type.INTEGER) {
+                    resultType = Type.INTEGER;
+                }
+            } else if (ctx.AND() != null && ctx.AND().size() >= i) {
+                operator = "and";
+                operatorLine = ctx.AND(i-1).getSymbol().getLine();
+                resultType = currentType.unifyLogical(rightType);
+            } else {
+                // Fallback
+                operator = getTermOperator(ctx, i-1);
+                operatorLine = ctx.start.getLine();
+                
+                // Tenta diferentes tipos de unificação
+                Type arithmeticResult = currentType.unifyArithmetic(rightType);
+                Type logicalResult = currentType.unifyLogical(rightType);
+                
+                if (arithmeticResult != Type.NO_TYPE) {
+                    resultType = arithmeticResult;
+                } else if (logicalResult != Type.NO_TYPE) {
+                    resultType = logicalResult;
+                }
+            }
+            
+            if (resultType == Type.NO_TYPE) {
+                System.err.printf("SEMANTIC ERROR (%d): operator '%s' cannot be applied to '%s' and '%s'.\n", 
+                                operatorLine, operator, currentType.toString(), rightType.toString());
+                System.exit(1);
+            }
+            
+            currentType = resultType;
+        }
+        
+        return currentType;
+    }
+
+    // Método auxiliar para identificar operador em term
+    private String getTermOperator(PascalParser.TermContext ctx, int index) {
+        if (ctx.STAR() != null && index < ctx.STAR().size()) return "*";
+        if (ctx.SLASH() != null && index < ctx.SLASH().size()) return "/";
+        if (ctx.DIV() != null && index < ctx.DIV().size()) return "div";
+        if (ctx.MOD() != null && index < ctx.MOD().size()) return "mod";
+        if (ctx.AND() != null && index < ctx.AND().size()) return "and";
+        return "unknown";
+    }
+
+    // Método para verificar statements compostos
+    @Override
+    public Type visitCompoundStatement(PascalParser.CompoundStatementContext ctx) {
+        visit(ctx.statementList());
+        return Type.NO_TYPE;
+    }
+
+    // Método para verificar lista de statements
+    @Override
+    public Type visitStatementList(PascalParser.StatementListContext ctx) {
+        for (PascalParser.StatementContext stmtCtx : ctx.statement()) {
+            visit(stmtCtx);
+        }
+        return Type.NO_TYPE;
+    }
+
+    // Método para verificar statements genéricos
+    @Override
+    public Type visitStatement(PascalParser.StatementContext ctx) {
+        if (ctx.compoundStatement() != null) {
+            return visit(ctx.compoundStatement());
+        } else if (ctx.assignmentStatement() != null) {
+            return visit(ctx.assignmentStatement());
+        } else if (ctx.procedureCall() != null) {
+            return visit(ctx.procedureCall());
+        } else if (ctx.ifStatement() != null) {
+            return visit(ctx.ifStatement());
+        } else if (ctx.whileStatement() != null) {
+            return visit(ctx.whileStatement());
+        }
+        // emptyStatement não precisa fazer nada
+        return Type.NO_TYPE;
+    }
+
+    // Método para verificar statements IF
+    @Override
+    public Type visitIfStatement(PascalParser.IfStatementContext ctx) {
+        Type conditionType = visit(ctx.expression());
+        
+        if (conditionType != Type.BOOLEAN) {
+            int line = ctx.IF().getSymbol().getLine();
+            System.err.printf("SEMANTIC ERROR (%d): if condition must be boolean, got '%s'.\n", 
+                            line, conditionType.toString());
+            System.exit(1);
+        }
+        
+        // Verifica os statements THEN e ELSE
+        visit(ctx.statement(0)); // THEN
+        if (ctx.statement().size() > 1) {
+            visit(ctx.statement(1)); // ELSE
+        }
+        
+        return Type.NO_TYPE;
+    }
+
+    // Método para verificar statements WHILE
+    @Override
+    public Type visitWhileStatement(PascalParser.WhileStatementContext ctx) {
+        Type conditionType = visit(ctx.expression());
+        
+        if (conditionType != Type.BOOLEAN) {
+            int line = ctx.WHILE().getSymbol().getLine();
+            System.err.printf("SEMANTIC ERROR (%d): while condition must be boolean, got '%s'.\n", 
+                            line, conditionType.toString());
+            System.exit(1);
+        }
+        
+        // Verifica o statement do corpo do loop
+        visit(ctx.statement());
+        
+        return Type.NO_TYPE;
+    }
 }
