@@ -139,7 +139,8 @@ term:
 ;
 
 factor: 
-    IDENTIFIER (LPAREN expressionList? RPAREN)?
+    variable
+    | IDENTIFIER (LPAREN expressionList? RPAREN)?
     | INTEGER
     | REAL
     | CHARACTER

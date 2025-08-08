@@ -377,7 +377,11 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
 
     @Override
     public Type visitFactor(PascalParser.FactorContext ctx) {
-        if (ctx.IDENTIFIER() != null) {
+        if (ctx.variable() != null) {
+        // Variável ou acesso a array
+        return visit(ctx.variable());
+        
+        } else if (ctx.IDENTIFIER() != null) {
             if (ctx.LPAREN() != null) {
                 // Chamada de função
                 return checkFunctionCall(ctx.IDENTIFIER().getSymbol(), ctx.expressionList());
