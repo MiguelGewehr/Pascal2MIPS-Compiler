@@ -50,7 +50,6 @@ public class SymbolTable {
     public void openScope(String scopeName) {
         activeScopes.add(new HashMap<>());
         activeScopeNames.add(scopeName);
-        System.out.println("DEBUG: Opened scope: " + scopeName + " at level " + getCurrentScopeLevel());
     }
     
     /**
@@ -71,7 +70,6 @@ public class SymbolTable {
             Map<String, Entry> entries = activeScopes.get(activeScopes.size() - 1);
             
             scopeHistory.add(new ScopeHistory(scopeName, level, entries));
-            System.out.println("DEBUG: Closed scope: " + scopeName + " with " + entries.size() + " entries");
             
             // Remove da lista ativa
             activeScopes.remove(activeScopes.size() - 1);
@@ -91,7 +89,7 @@ public class SymbolTable {
         }
         
         currentScope.put(name, entry);
-        System.out.println("DEBUG: Added " + name + " to scope " + getCurrentScopeName());
+        
         return true;
     }
     

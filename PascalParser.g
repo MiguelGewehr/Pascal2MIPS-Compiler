@@ -144,6 +144,8 @@ factor:
     | REAL
     | CHARACTER
     | STRING
+    | TRUE
+    | FALSE
     | LPAREN expression RPAREN
     | NOT factor
 ;

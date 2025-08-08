@@ -12,10 +12,7 @@ import entries.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Analisador semântico de Pascal implementado como um visitor da ParseTree do ANTLR.
- * Versão corrigida mantendo verificação de tipos.
- */
+// Analisador semântico de Pascal implementado como um visitor da ParseTree do ANTLR.
 public class SemanticChecker extends PascalParserBaseVisitor<Type> {
     
     private StrTable st = new StrTable();
@@ -61,8 +58,6 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
         symbolTable.addEntry("write", new FuncEntry("write", 0, Type.NO_TYPE, new ArrayList<>()));
         symbolTable.addEntry("readln", new FuncEntry("readln", 0, Type.NO_TYPE, new ArrayList<>()));
         symbolTable.addEntry("read", new FuncEntry("read", 0, Type.NO_TYPE, new ArrayList<>()));
-        
-        System.out.println("DEBUG: Built-in procedures initialized");
     }
 
     /**
@@ -170,14 +165,12 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
     
     @Override
     public Type visitProgram(PascalParser.ProgramContext ctx) {
-        System.out.println("DEBUG: Visiting program");
         visit(ctx.block());
         return Type.NO_TYPE;
     }
     
     @Override
     public Type visitBlock(PascalParser.BlockContext ctx) {
-        System.out.println("DEBUG: Visiting block");
         
         // Processa seções na ordem correta
         if (ctx.constSection() != null) {
@@ -203,10 +196,9 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
     
     @Override
     public Type visitProcedureDeclaration(PascalParser.ProcedureDeclarationContext ctx) {
+        
         String procName = ctx.IDENTIFIER().getText();
         int line = ctx.IDENTIFIER().getSymbol().getLine();
-        
-        System.out.println("DEBUG: Declaring procedure: " + procName);
         
         // Verifica redeclaração
         Entry existing = symbolTable.lookupCurrentScope(procName);
@@ -234,11 +226,10 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
     
     @Override
     public Type visitFunctionDeclaration(PascalParser.FunctionDeclarationContext ctx) {
+        
         String funcName = ctx.IDENTIFIER(0).getText();
         String returnTypeName = ctx.IDENTIFIER(1).getText();
         int line = ctx.IDENTIFIER(0).getSymbol().getLine();
-        
-        System.out.println("DEBUG: Declaring function: " + funcName);
         
         // Verifica redeclaração
         Entry existing = symbolTable.lookupCurrentScope(funcName);
@@ -273,6 +264,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
     
     @Override
     public Type visitFormalParameterSection(PascalParser.FormalParameterSectionContext ctx) {
+        
         String typeName = ctx.IDENTIFIER().getText();
         Type paramType = getTypeFromName(typeName);
         
@@ -280,8 +272,6 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
             System.err.printf("SEMANTIC ERROR: unknown parameter type '%s'.\n", typeName);
             System.exit(1);
         }
-        
-        System.out.println("DEBUG: Declaring parameters of type: " + paramType);
         
         for (TerminalNode id : ctx.identifierList().IDENTIFIER()) {
             String paramName = id.getText();
@@ -304,23 +294,18 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
 
     @Override
     public Type visitVarSection(PascalParser.VarSectionContext ctx) {
-        System.out.println("DEBUG: Processing var section with " + ctx.varDeclaration().size() + " declarations");
         super.visitVarSection(ctx);
         return Type.NO_TYPE;
     }
 
     @Override
     public Type visitVarDeclaration(PascalParser.VarDeclarationContext ctx) {
-        System.out.println("DEBUG: Processing var declaration");
         
         // Processa o tipo da declaração
         processTypeDenoter(ctx.typeDenoter());
-        System.out.println("DEBUG: Variable type: " + 
-                          (lastDeclType == Type.ARRAY ? lastArrayType.toString() : lastDeclType.toString()));
-
+        
         // Para cada variável na lista
         for (TerminalNode id : ctx.identifierList().IDENTIFIER()) {
-            System.out.println("DEBUG: Declaring variable: " + id.getText());
             newVar(id.getSymbol());
         }
         return Type.NO_TYPE;
@@ -328,14 +313,12 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
     
     @Override
     public Type visitConstSection(PascalParser.ConstSectionContext ctx) {
-        System.out.println("DEBUG: Processing const section");
         super.visitConstSection(ctx);
         return Type.NO_TYPE;
     }
     
     @Override
     public Type visitConstDefinition(PascalParser.ConstDefinitionContext ctx) {
-        System.out.println("DEBUG: Processing const definition: " + ctx.IDENTIFIER().getText());
         
         // Visita a constante para determinar seu tipo
         Type constType = visit(ctx.constant());
@@ -415,6 +398,8 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
         } else if (ctx.LPAREN() != null) {
             // Expressão entre parênteses
             return visit(ctx.expression());
+        } else if (ctx.TRUE() != null || ctx.FALSE() != null) {
+            return Type.BOOLEAN; 
         } else if (ctx.NOT() != null) {
             // Negação lógica - CORREÇÃO APLICADA AQUI
             Type factorType = visit(ctx.factor()); // Sem o (0)
@@ -456,9 +441,6 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
             System.exit(1);
         }
         
-        System.out.println("DEBUG: Function call to " + functionName + " with return type " + 
-                          funcEntry.getEntryType());
-        
         return funcEntry.getEntryType();
     }
     
@@ -479,8 +461,6 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
         }
         
         FuncEntry funcEntry = (FuncEntry) entry;
-        
-        System.out.println("DEBUG: Procedure call to " + procName);
         
         return Type.NO_TYPE;
     }
@@ -541,8 +521,6 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
             elementType = Type.NO_TYPE;
         }
         
-        System.out.println("DEBUG: Array type: [" + startIndex + ".." + endIndex + "] of " + elementType);
-        
         return new Type.ArrayType(elementType, startIndex, endIndex);
     }
     
@@ -581,7 +559,4 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
             default -> Type.NO_TYPE;
         };
     }
-
-    // Adicione outros métodos visit conforme necessário para expressões, statements, etc.
-    // Mantendo a compatibilidade com a versão original mas com as correções aplicadas
 }
