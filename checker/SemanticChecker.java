@@ -272,6 +272,9 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
             System.err.printf("SEMANTIC ERROR: unknown parameter type '%s'.\n", typeName);
             System.exit(1);
         }
+
+        // Verifica se é parâmetro por referência (VAR)
+        boolean isVarParam = ctx.VAR() != null;
         
         for (TerminalNode id : ctx.identifierList().IDENTIFIER()) {
             String paramName = id.getText();
@@ -285,7 +288,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
                 System.exit(1);
             }
             
-            ParamEntry paramEntry = new ParamEntry(paramName, line, paramType, false);
+            ParamEntry paramEntry = new ParamEntry(paramName, line, paramType, isVarParam);
             symbolTable.addEntry(paramName, paramEntry);
         }
         
@@ -380,7 +383,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
         if (ctx.variable() != null) {
         // Variável ou acesso a array
         return visit(ctx.variable());
-        
+
         } else if (ctx.IDENTIFIER() != null) {
             if (ctx.LPAREN() != null) {
                 // Chamada de função

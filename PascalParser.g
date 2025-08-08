@@ -87,7 +87,7 @@ formalParameterList:
 ;
 
 formalParameterSection: 
-    identifierList COLON IDENTIFIER
+    (VAR)? identifierList COLON IDENTIFIER
 ;
 
 compoundStatement: 
