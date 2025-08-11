@@ -7,13 +7,17 @@ import parser.PascalParserBaseVisitor;
 import tables.StrTable;
 import tables.SymbolTable;
 import typing.Type;
+import typing.Conv;
 import entries.*;
+import ast.AST;
+import ast.NodeKind;
 
 import java.util.ArrayList;
 import java.util.List;
 
 // Analisador semântico de Pascal implementado como um visitor da ParseTree do ANTLR.
-public class SemanticChecker extends PascalParserBaseVisitor<Type> {
+// Agora retorna nós AST ao invés de tipos diretamente.
+public class SemanticChecker extends PascalParserBaseVisitor<AST> {
     
     private StrTable st = new StrTable();
     private SymbolTable symbolTable = new SymbolTable();
@@ -163,39 +167,69 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
         System.out.print("\n\n");
     }
     
-    @Override
-    public Type visitProgram(PascalParser.ProgramContext ctx) {
-        visit(ctx.block());
-        return Type.NO_TYPE;
+    /**
+     * Imprime a AST em formato DOT
+     */
+    public void printAST(AST root) {
+        if (root != null) {
+            AST.printDot(root, symbolTable);
+        }
     }
     
     @Override
-    public Type visitBlock(PascalParser.BlockContext ctx) {
+    public AST visitProgram(PascalParser.ProgramContext ctx) {
+        String programName = ctx.IDENTIFIER().getText();
+        
+        AST blockNode = visit(ctx.block());
+        
+        AST programNode = new AST(NodeKind.PROGRAM_NODE, programName, Type.NO_TYPE);
+        programNode.addChild(blockNode);
+        
+        return programNode;
+    }
+    
+    @Override
+    public AST visitBlock(PascalParser.BlockContext ctx) {
+        AST blockNode = new AST(NodeKind.BLOCK_NODE, Type.NO_TYPE);
         
         // Processa seções na ordem correta
         if (ctx.constSection() != null) {
-            visit(ctx.constSection());
+            AST constSectionNode = visit(ctx.constSection());
+            blockNode.addChild(constSectionNode);
         }
         
         if (ctx.varSection() != null) {
-            visit(ctx.varSection());
+            AST varSectionNode = visit(ctx.varSection());
+            blockNode.addChild(varSectionNode);
         }
         
         // Processa declarações de subrotinas
         for (PascalParser.SubroutineDeclarationPartContext subCtx : ctx.subroutineDeclarationPart()) {
-            visit(subCtx);
+            AST subroutineNode = visit(subCtx);
+            blockNode.addChild(subroutineNode);
         }
         
         // Processa o statement composto
         if (ctx.compoundStatement() != null) {
-            visit(ctx.compoundStatement());
+            AST compoundNode = visit(ctx.compoundStatement());
+            blockNode.addChild(compoundNode);
         }
         
-        return Type.NO_TYPE;
+        return blockNode;
     }
     
     @Override
-    public Type visitProcedureDeclaration(PascalParser.ProcedureDeclarationContext ctx) {
+    public AST visitSubroutineDeclarationPart(PascalParser.SubroutineDeclarationPartContext ctx) {
+        if (ctx.procedureDeclaration() != null) {
+            return visit(ctx.procedureDeclaration());
+        } else if (ctx.functionDeclaration() != null) {
+            return visit(ctx.functionDeclaration());
+        }
+        return null;
+    }
+    
+    @Override
+    public AST visitProcedureDeclaration(PascalParser.ProcedureDeclarationContext ctx) {
         
         String procName = ctx.IDENTIFIER().getText();
         int line = ctx.IDENTIFIER().getSymbol().getLine();
@@ -211,21 +245,29 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
         FuncEntry procEntry = new FuncEntry(procName, line, Type.NO_TYPE, new ArrayList<>());
         symbolTable.addEntry(procName, procEntry);
         
+        // Cria nó da procedure
+        AST procNode = new AST(NodeKind.PROC_DECL_NODE, procName, Type.NO_TYPE);
+        
         // Abre novo escopo para a procedure
         symbolTable.openScope(procName + "_PROC");
         
+        // Adiciona parâmetros se existirem
         if (ctx.formalParameterList() != null) {
-            visit(ctx.formalParameterList());
+            AST paramListNode = visit(ctx.formalParameterList());
+            procNode.addChild(paramListNode);
         }
         
-        visit(ctx.block());
+        // Adiciona bloco da procedure
+        AST blockNode = visit(ctx.block());
+        procNode.addChild(blockNode);
+        
         symbolTable.closeScope();
         
-        return Type.NO_TYPE;
+        return procNode;
     }
     
     @Override
-    public Type visitFunctionDeclaration(PascalParser.FunctionDeclarationContext ctx) {
+    public AST visitFunctionDeclaration(PascalParser.FunctionDeclarationContext ctx) {
         
         String funcName = ctx.IDENTIFIER(0).getText();
         String returnTypeName = ctx.IDENTIFIER(1).getText();
@@ -249,21 +291,41 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
         FuncEntry funcEntry = new FuncEntry(funcName, line, returnType, new ArrayList<>());
         symbolTable.addEntry(funcName, funcEntry);
         
+        // Cria nó da function
+        AST funcNode = new AST(NodeKind.FUNC_DECL_NODE, funcName, returnType);
+        
         // Abre novo escopo para a function
         symbolTable.openScope(funcName + "_FUNC");
         
+        // Adiciona parâmetros se existirem
         if (ctx.formalParameterList() != null) {
-            visit(ctx.formalParameterList());
+            AST paramListNode = visit(ctx.formalParameterList());
+            funcNode.addChild(paramListNode);
         }
         
-        visit(ctx.block());
+        // Adiciona bloco da function
+        AST blockNode = visit(ctx.block());
+        funcNode.addChild(blockNode);
+        
         symbolTable.closeScope();
         
-        return Type.NO_TYPE;
+        return funcNode;
     }
     
     @Override
-    public Type visitFormalParameterSection(PascalParser.FormalParameterSectionContext ctx) {
+    public AST visitFormalParameterList(PascalParser.FormalParameterListContext ctx) {
+        AST paramListNode = new AST(NodeKind.PARAM_LIST_NODE, Type.NO_TYPE);
+        
+        for (PascalParser.FormalParameterSectionContext paramCtx : ctx.formalParameterSection()) {
+            AST paramSectionNode = visit(paramCtx);
+            paramListNode.addChild(paramSectionNode);
+        }
+        
+        return paramListNode;
+    }
+    
+    @Override
+    public AST visitFormalParameterSection(PascalParser.FormalParameterSectionContext ctx) {
         
         String typeName = ctx.IDENTIFIER().getText();
         Type paramType = getTypeFromName(typeName);
@@ -275,6 +337,9 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
 
         // Verifica se é parâmetro por referência (VAR)
         boolean isVarParam = ctx.VAR() != null;
+        
+        // Cria um nó para agrupar todos os parâmetros desta seção
+        AST paramSectionNode = new AST(NodeKind.PARAM_LIST_NODE, Type.NO_TYPE);
         
         for (TerminalNode id : ctx.identifierList().IDENTIFIER()) {
             String paramName = id.getText();
@@ -290,135 +355,261 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
             
             ParamEntry paramEntry = new ParamEntry(paramName, line, paramType, isVarParam);
             symbolTable.addEntry(paramName, paramEntry);
+            
+            // Cria nó AST para o parâmetro
+            AST paramNode = new AST(NodeKind.PARAM_NODE, paramName, paramType);
+            paramSectionNode.addChild(paramNode);
         }
         
-        return Type.NO_TYPE;
+        return paramSectionNode;
     }
 
     @Override
-    public Type visitVarSection(PascalParser.VarSectionContext ctx) {
-        super.visitVarSection(ctx);
-        return Type.NO_TYPE;
-    }
-
-    @Override
-    public Type visitVarDeclaration(PascalParser.VarDeclarationContext ctx) {
+    public AST visitConstSection(PascalParser.ConstSectionContext ctx) {
+        AST constSectionNode = new AST(NodeKind.CONST_SECTION_NODE, Type.NO_TYPE);
         
-        // Processa o tipo da declaração
-        processTypeDenoter(ctx.typeDenoter());
-        
-        // Para cada variável na lista
-        for (TerminalNode id : ctx.identifierList().IDENTIFIER()) {
-            newVar(id.getSymbol());
+        for (PascalParser.ConstDefinitionContext constDef : ctx.constDefinition()) {
+            AST constDeclNode = visit(constDef);
+            constSectionNode.addChild(constDeclNode);
         }
-        return Type.NO_TYPE;
-    }
-    
-    @Override
-    public Type visitConstSection(PascalParser.ConstSectionContext ctx) {
-        super.visitConstSection(ctx);
-        return Type.NO_TYPE;
-    }
-    
-    @Override
-    public Type visitConstDefinition(PascalParser.ConstDefinitionContext ctx) {
         
-        // Visita a constante para determinar seu tipo
-        Type constType = visit(ctx.constant());
+        return constSectionNode;
+    }
+    
+    @Override
+    public AST visitConstDefinition(PascalParser.ConstDefinitionContext ctx) {
+        
+        // Visita a constante para determinar seu tipo e obter nó AST
+        AST constantNode = visit(ctx.constant());
+        Type constType = constantNode.type;
+        
         lastDeclType = constType;
         lastArrayType = null; // Constantes não são arrays
         
         Token constToken = ctx.IDENTIFIER().getSymbol();
-        Object value = null; // TODO: extrair valor real da constante
+        String constName = constToken.getText();
+        Object value = extractConstantValue(ctx.constant(), constType);
         
         newConst(constToken, value);
         
-        return Type.NO_TYPE;
+        // Cria nó de declaração de constante
+        AST constDeclNode = new AST(NodeKind.CONST_DECL_NODE, constName, constType);
+        constDeclNode.addChild(constantNode);
+        
+        return constDeclNode;
+    }
+    
+    /**
+     * Extrai o valor de uma constante para armazenamento na tabela de símbolos
+     */
+    private Object extractConstantValue(PascalParser.ConstantContext ctx, Type type) {
+        if (ctx.signedNumber() != null) {
+            if (ctx.signedNumber().INTEGER() != null) {
+                String text = ctx.signedNumber().INTEGER().getText();
+                int value = Integer.parseInt(text);
+                if (ctx.signedNumber().MINUS() != null) {
+                    value = -value;
+                }
+                return value;
+            } else if (ctx.signedNumber().REAL() != null) {
+                String text = ctx.signedNumber().REAL().getText();
+                float value = Float.parseFloat(text);
+                if (ctx.signedNumber().MINUS() != null) {
+                    value = -value;
+                }
+                return value;
+            }
+        } else if (ctx.CHARACTER() != null) {
+            return ctx.CHARACTER().getText();
+        } else if (ctx.STRING() != null) {
+            return ctx.STRING().getText();
+        } else if (ctx.TRUE() != null) {
+            return true;
+        } else if (ctx.FALSE() != null) {
+            return false;
+        }
+        return null;
     }
 
     @Override
-    public Type visitConstant(PascalParser.ConstantContext ctx) {
+    public AST visitConstant(PascalParser.ConstantContext ctx) {
         if (ctx.signedNumber() != null) {
             return visit(ctx.signedNumber());
         } else if (ctx.CHARACTER() != null) {
-            return Type.CHAR;
+            String charValue = ctx.CHARACTER().getText();
+            return new AST(NodeKind.CHAR_VAL_NODE, charValue, Type.CHAR);
         } else if (ctx.STRING() != null) {
-            st.add(ctx.STRING().getText());
-            return Type.STRING;
+            String strValue = ctx.STRING().getText();
+            int strIndex = st.add(strValue) ? st.size() - 1 : st.indexOf(strValue);
+            return new AST(NodeKind.STR_VAL_NODE, strValue, Type.STRING);
+        } else if (ctx.TRUE() != null) {
+            return new AST(NodeKind.BOOL_VAL_NODE, 1, Type.BOOLEAN);
+        } else if (ctx.FALSE() != null) {
+            return new AST(NodeKind.BOOL_VAL_NODE, 0, Type.BOOLEAN);
         } else if (ctx.IDENTIFIER() != null) {
             // Referência a outra constante
             TypeInfo typeInfo = checkVar(ctx.IDENTIFIER().getSymbol());
-            return typeInfo.type;
+            String varName = ctx.IDENTIFIER().getText();
+            return new AST(NodeKind.VAR_USE_NODE, varName, typeInfo.type);
         }
-        return Type.NO_TYPE;
+        return new AST(NodeKind.INT_VAL_NODE, 0, Type.NO_TYPE);
     }
 
     @Override
-    public Type visitSignedNumber(PascalParser.SignedNumberContext ctx) {
+    public AST visitSignedNumber(PascalParser.SignedNumberContext ctx) {
         if (ctx.INTEGER() != null) {
-            return Type.INTEGER;
+            String text = ctx.INTEGER().getText();
+            int value = Integer.parseInt(text);
+            if (ctx.MINUS() != null) {
+                value = -value;
+            }
+            return new AST(NodeKind.INT_VAL_NODE, value, Type.INTEGER);
         } else if (ctx.REAL() != null) {
-            return Type.REAL;
+            String text = ctx.REAL().getText();
+            float value = Float.parseFloat(text);
+            if (ctx.MINUS() != null) {
+                value = -value;
+            }
+            return new AST(NodeKind.REAL_VAL_NODE, value, Type.REAL);
         }
-        return Type.NO_TYPE;
+        return new AST(NodeKind.INT_VAL_NODE, 0, Type.NO_TYPE);
     }
 
     @Override
-    public Type visitVariable(PascalParser.VariableContext ctx) {
+    public AST visitVarSection(PascalParser.VarSectionContext ctx) {
+        AST varSectionNode = new AST(NodeKind.VAR_SECTION_NODE, Type.NO_TYPE);
+        
+        for (PascalParser.VarDeclarationContext varDecl : ctx.varDeclaration()) {
+            AST varDeclNode = visit(varDecl);
+            varSectionNode.addChild(varDeclNode);
+        }
+        
+        return varSectionNode;
+    }
+
+    @Override
+    public AST visitVarDeclaration(PascalParser.VarDeclarationContext ctx) {
+        
+        // Processa o tipo da declaração
+        processTypeDenoter(ctx.typeDenoter());
+        
+        // Cria nó de lista de variáveis
+        AST varListNode = new AST(NodeKind.VAR_LIST_NODE, Type.NO_TYPE);
+        
+        // Para cada variável na lista
+        for (TerminalNode id : ctx.identifierList().IDENTIFIER()) {
+            newVar(id.getSymbol());
+            
+            // Cria nó AST para a declaração da variável
+            String varName = id.getText();
+            AST varDeclNode = new AST(NodeKind.VAR_DECL_NODE, varName, lastDeclType);
+            varListNode.addChild(varDeclNode);
+        }
+        return varListNode;
+    }
+
+    @Override
+    public AST visitVariable(PascalParser.VariableContext ctx) {
         if (ctx.LBRACK() != null) {
             // Acesso a array: IDENTIFIER[expression]
-            Type indexType = visit(ctx.expression());
+            AST indexNode = visit(ctx.expression());
+            Type indexType = indexNode.type;
+            
             TypeInfo resultType = checkArrayAccess(ctx.IDENTIFIER().getSymbol(), indexType, 
                                                   ctx.IDENTIFIER().getSymbol().getLine());
-            return resultType.type;
+            
+            String arrayName = ctx.IDENTIFIER().getText();
+            AST arrayAccessNode = new AST(NodeKind.ARRAY_ACCESS_NODE, arrayName, resultType.type);
+            arrayAccessNode.addChild(indexNode);
+            
+            return arrayAccessNode;
         } else {
             // Variável simples
             TypeInfo typeInfo = checkVar(ctx.IDENTIFIER().getSymbol());
-            return typeInfo.type;
+            String varName = ctx.IDENTIFIER().getText();
+            return new AST(NodeKind.VAR_USE_NODE, varName, typeInfo.type);
         }
     }
 
     @Override
-    public Type visitFactor(PascalParser.FactorContext ctx) {
+    public AST visitFactor(PascalParser.FactorContext ctx) {
         if (ctx.variable() != null) {
-        // Variável ou acesso a array
-        return visit(ctx.variable());
+            // Variável ou acesso a array
+            return visit(ctx.variable());
 
         } else if (ctx.IDENTIFIER() != null) {
             if (ctx.LPAREN() != null) {
                 // Chamada de função
-                return checkFunctionCall(ctx.IDENTIFIER().getSymbol(), ctx.expressionList());
+                Type returnType = checkFunctionCall(ctx.IDENTIFIER().getSymbol(), ctx.expressionList());
+                String funcName = ctx.IDENTIFIER().getText();
+                
+                AST funcCallNode = new AST(NodeKind.FUNC_CALL_NODE, funcName, returnType);
+                
+                if (ctx.expressionList() != null) {
+                    AST exprListNode = visit(ctx.expressionList());
+                    funcCallNode.addChild(exprListNode);
+                }
+                
+                return funcCallNode;
             } else {
                 // Variável simples
                 TypeInfo typeInfo = checkVar(ctx.IDENTIFIER().getSymbol());
-                return typeInfo.type;
+                String varName = ctx.IDENTIFIER().getText();
+                return new AST(NodeKind.VAR_USE_NODE, varName, typeInfo.type);
             }
         } else if (ctx.INTEGER() != null) {
-            return Type.INTEGER;
+            int value = Integer.parseInt(ctx.INTEGER().getText());
+            return new AST(NodeKind.INT_VAL_NODE, value, Type.INTEGER);
         } else if (ctx.REAL() != null) {
-            return Type.REAL;
+            float value = Float.parseFloat(ctx.REAL().getText());
+            return new AST(NodeKind.REAL_VAL_NODE, value, Type.REAL);
         } else if (ctx.CHARACTER() != null) {
-            return Type.CHAR;
+            String charValue = ctx.CHARACTER().getText();
+            return new AST(NodeKind.CHAR_VAL_NODE, charValue, Type.CHAR);
         } else if (ctx.STRING() != null) {
-            st.add(ctx.STRING().getText());
-            return Type.STRING;
+            String strValue = ctx.STRING().getText();
+            st.add(strValue);
+            return new AST(NodeKind.STR_VAL_NODE, strValue, Type.STRING);
         } else if (ctx.LPAREN() != null) {
             // Expressão entre parênteses
-            return visit(ctx.expression());
-        } else if (ctx.TRUE() != null || ctx.FALSE() != null) {
-            return Type.BOOLEAN; 
+            AST exprNode = visit(ctx.expression());
+            AST parenNode = new AST(NodeKind.PAREN_EXPR_NODE, exprNode.type);
+            parenNode.addChild(exprNode);
+            return parenNode;
+        } else if (ctx.TRUE() != null) {
+            return new AST(NodeKind.BOOL_VAL_NODE, 1, Type.BOOLEAN);
+        } else if (ctx.FALSE() != null) {
+            return new AST(NodeKind.BOOL_VAL_NODE, 0, Type.BOOLEAN);
         } else if (ctx.NOT() != null) {
-            // Negação lógica - CORREÇÃO APLICADA AQUI
-            Type factorType = visit(ctx.factor()); // Sem o (0)
-            if (factorType != Type.BOOLEAN) {
+            // Negação lógica
+            AST factorNode = visit(ctx.factor());
+            if (factorNode.type != Type.BOOLEAN) {
                 System.err.printf("SEMANTIC ERROR (%d): 'not' operator requires boolean operand, got '%s'.\n", 
-                                 ctx.NOT().getSymbol().getLine(), factorType.toString());
+                                 ctx.NOT().getSymbol().getLine(), factorNode.type.toString());
                 System.exit(1);
             }
-            return Type.BOOLEAN;
+            
+            AST notNode = new AST(NodeKind.NOT_NODE, Type.BOOLEAN);
+            notNode.addChild(factorNode);
+            return notNode;
         }
         
-        return Type.NO_TYPE;
+        return new AST(NodeKind.INT_VAL_NODE, 0, Type.NO_TYPE);
+    }
+    
+    @Override
+    public AST visitExpressionList(PascalParser.ExpressionListContext ctx) {
+        AST exprListNode = new AST(NodeKind.BLOCK_NODE, Type.NO_TYPE); // Usando BLOCK_NODE como container
+        
+        for (PascalParser.ExpressionItemContext exprItem : ctx.expressionItem()) {
+            if (exprItem.expression() != null) {
+                AST exprNode = visit(exprItem.expression());
+                exprListNode.addChild(exprNode);
+            }
+            // Ignorando formattedExpression por simplicidade
+        }
+        
+        return exprListNode;
     }
     
     /**
@@ -452,7 +643,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
     }
     
     @Override
-    public Type visitProcedureCall(PascalParser.ProcedureCallContext ctx) {
+    public AST visitProcedureCall(PascalParser.ProcedureCallContext ctx) {
         String procName = ctx.IDENTIFIER().getText();
         int line = ctx.IDENTIFIER().getSymbol().getLine();
         
@@ -467,9 +658,14 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
             System.exit(1);
         }
         
-        FuncEntry funcEntry = (FuncEntry) entry;
+        AST procCallNode = new AST(NodeKind.PROC_CALL_NODE, procName, Type.NO_TYPE);
         
-        return Type.NO_TYPE;
+        if (ctx.expressionList() != null) {
+            AST exprListNode = visit(ctx.expressionList());
+            procCallNode.addChild(exprListNode);
+        }
+        
+        return procCallNode;
     }
 
     /**
@@ -568,12 +764,14 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
     }
 
     @Override
-    public Type visitAssignmentStatement(PascalParser.AssignmentStatementContext ctx) {
-        // Obtém o tipo da variável de destino
-        Type varType = visit(ctx.variable());
+    public AST visitAssignmentStatement(PascalParser.AssignmentStatementContext ctx) {
+        // Obtém o nó AST da variável de destino
+        AST varNode = visit(ctx.variable());
+        Type varType = varNode.type;
         
-        // Obtém o tipo da expressão do lado direito
-        Type exprType = visit(ctx.expression());
+        // Obtém o nó AST da expressão do lado direito
+        AST exprNode = visit(ctx.expression());
+        Type exprType = exprNode.type;
         
         // Verifica compatibilidade de tipos para atribuição
         Type resultType = varType.unifyAssignment(exprType);
@@ -585,21 +783,35 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
             System.exit(1);
         }
         
-        return Type.NO_TYPE;
+        // Cria nó de atribuição
+        AST assignNode = new AST(NodeKind.ASSIGN_NODE, Type.NO_TYPE);
+        assignNode.addChild(varNode);
+        
+        // Se precisa de conversão, cria nó de conversão
+        if (varType == Type.REAL && exprType == Type.INTEGER) {
+            AST convNode = Conv.createConvNode(Conv.I2R, exprNode);
+            assignNode.addChild(convNode);
+        } else {
+            assignNode.addChild(exprNode);
+        }
+        
+        return assignNode;
     }
 
-        // Método para verificar expressões (comparações)
+    // Método para verificar expressões (comparações)
     @Override
-    public Type visitExpression(PascalParser.ExpressionContext ctx) {
-        Type leftType = visit(ctx.simpleExpression(0));
+    public AST visitExpression(PascalParser.ExpressionContext ctx) {
+        AST leftNode = visit(ctx.simpleExpression(0));
+        Type leftType = leftNode.type;
         
-        // Se não há operador de comparação, retorna o tipo da expressão simples
+        // Se não há operador de comparação, retorna o nó da expressão simples
         if (ctx.simpleExpression().size() == 1) {
-            return leftType;
+            return leftNode;
         }
         
         // Há operador de comparação
-        Type rightType = visit(ctx.simpleExpression(1));
+        AST rightNode = visit(ctx.simpleExpression(1));
+        Type rightType = rightNode.type;
         Type resultType = leftType.unifyComparison(rightType);
         
         if (resultType == Type.NO_TYPE) {
@@ -618,7 +830,28 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
             System.exit(1);
         }
         
-        return resultType; // Sempre BOOLEAN para comparações válidas
+        // Cria nó do operador de comparação
+        NodeKind opKind = NodeKind.EQ_NODE;
+        if (ctx.EQUAL() != null) opKind = NodeKind.EQ_NODE;
+        else if (ctx.NOTEQUAL() != null) opKind = NodeKind.NEQ_NODE;
+        else if (ctx.LESS() != null) opKind = NodeKind.LT_NODE;
+        else if (ctx.GREATER() != null) opKind = NodeKind.GT_NODE;
+        else if (ctx.LESSEQUAL() != null) opKind = NodeKind.LE_NODE;
+        else if (ctx.GREATEREQUAL() != null) opKind = NodeKind.GE_NODE;
+        
+        AST compNode = new AST(opKind, Type.BOOLEAN);
+        
+        // Adiciona conversões se necessárias
+        if (leftType == Type.INTEGER && rightType == Type.REAL) {
+            leftNode = Conv.createConvNode(Conv.I2R, leftNode);
+        } else if (leftType == Type.REAL && rightType == Type.INTEGER) {
+            rightNode = Conv.createConvNode(Conv.I2R, rightNode);
+        }
+        
+        compNode.addChild(leftNode);
+        compNode.addChild(rightNode);
+        
+        return compNode;
     }
 
     // Método auxiliar para obter a linha do operador de comparação
@@ -634,31 +867,39 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
 
     // Método para verificar expressões simples (+, -, OR)
     @Override
-    public Type visitSimpleExpression(PascalParser.SimpleExpressionContext ctx) {
-        Type currentType = visit(ctx.term(0));
+    public AST visitSimpleExpression(PascalParser.SimpleExpressionContext ctx) {
+        AST currentNode = visit(ctx.term(0));
+        Type currentType = currentNode.type;
         
         // Processa os operadores da esquerda para a direita
         for (int i = 1; i < ctx.term().size(); i++) {
-            Type rightType = visit(ctx.term(i));
+            AST rightNode = visit(ctx.term(i));
+            Type rightType = rightNode.type;
             String operator;
             int operatorLine;
+            NodeKind opKind;
+            Type resultType = Type.NO_TYPE;
             
-            // Determina qual operador foi usado (baseado na posição)
+            // Determina qual operador foi usado
             if (ctx.PLUS() != null && ctx.PLUS().size() >= i) {
                 operator = "+";
+                opKind = NodeKind.PLUS_NODE;
                 operatorLine = ctx.PLUS(i-1).getSymbol().getLine();
-                currentType = currentType.unifyArithmetic(rightType);
+                resultType = currentType.unifyArithmetic(rightType);
             } else if (ctx.MINUS() != null && ctx.MINUS().size() >= i) {
                 operator = "-";
+                opKind = NodeKind.MINUS_NODE;
                 operatorLine = ctx.MINUS(i-1).getSymbol().getLine();
-                currentType = currentType.unifyArithmetic(rightType);
+                resultType = currentType.unifyArithmetic(rightType);
             } else if (ctx.OR() != null && ctx.OR().size() >= i) {
                 operator = "or";
+                opKind = NodeKind.OR_NODE;
                 operatorLine = ctx.OR(i-1).getSymbol().getLine();
-                currentType = currentType.unifyLogical(rightType);
+                resultType = currentType.unifyLogical(rightType);
             } else {
                 // Fallback - determina o operador pela análise dos tokens
                 operator = getSimpleExpressionOperator(ctx, i-1);
+                opKind = NodeKind.PLUS_NODE; // default
                 operatorLine = ctx.start.getLine();
                 
                 // Tenta ambos os tipos de unificação
@@ -666,22 +907,40 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
                 Type logicalResult = currentType.unifyLogical(rightType);
                 
                 if (arithmeticResult != Type.NO_TYPE) {
-                    currentType = arithmeticResult;
+                    resultType = arithmeticResult;
                 } else if (logicalResult != Type.NO_TYPE) {
-                    currentType = logicalResult;
-                } else {
-                    currentType = Type.NO_TYPE;
+                    resultType = logicalResult;
+                    opKind = NodeKind.OR_NODE;
                 }
             }
             
-            if (currentType == Type.NO_TYPE) {
+            if (resultType == Type.NO_TYPE) {
                 System.err.printf("SEMANTIC ERROR (%d): operator '%s' cannot be applied to operands.\n", 
                                 operatorLine, operator);
                 System.exit(1);
             }
+            
+            // Cria nó do operador
+            AST opNode = new AST(opKind, resultType);
+            
+            // Adiciona conversões se necessárias
+            if (resultType == Type.REAL) {
+                if (currentType == Type.INTEGER) {
+                    currentNode = Conv.createConvNode(Conv.I2R, currentNode);
+                }
+                if (rightType == Type.INTEGER) {
+                    rightNode = Conv.createConvNode(Conv.I2R, rightNode);
+                }
+            }
+            
+            opNode.addChild(currentNode);
+            opNode.addChild(rightNode);
+            
+            currentNode = opNode;
+            currentType = resultType;
         }
         
-        return currentType;
+        return currentNode;
     }
 
     // Método auxiliar para identificar operador em simpleExpression
@@ -695,23 +954,28 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
 
     // Método para verificar termos (*, /, DIV, MOD, AND)
     @Override
-    public Type visitTerm(PascalParser.TermContext ctx) {
-        Type currentType = visit(ctx.factor(0));
+    public AST visitTerm(PascalParser.TermContext ctx) {
+        AST currentNode = visit(ctx.factor(0));
+        Type currentType = currentNode.type;
         
         // Processa os operadores da esquerda para a direita
         for (int i = 1; i < ctx.factor().size(); i++) {
-            Type rightType = visit(ctx.factor(i));
+            AST rightNode = visit(ctx.factor(i));
+            Type rightType = rightNode.type;
             String operator;
             int operatorLine;
+            NodeKind opKind;
             Type resultType = Type.NO_TYPE;
             
             // Determina qual operador foi usado e faz a verificação apropriada
             if (ctx.STAR() != null && ctx.STAR().size() >= i) {
                 operator = "*";
+                opKind = NodeKind.TIMES_NODE;
                 operatorLine = ctx.STAR(i-1).getSymbol().getLine();
                 resultType = currentType.unifyArithmetic(rightType);
             } else if (ctx.SLASH() != null && ctx.SLASH().size() >= i) {
                 operator = "/";
+                opKind = NodeKind.DIVIDE_NODE;
                 operatorLine = ctx.SLASH(i-1).getSymbol().getLine();
                 resultType = currentType.unifyArithmetic(rightType);
                 // Divisão real sempre retorna REAL
@@ -720,6 +984,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
                 }
             } else if (ctx.DIV() != null && ctx.DIV().size() >= i) {
                 operator = "div";
+                opKind = NodeKind.DIV_NODE;
                 operatorLine = ctx.DIV(i-1).getSymbol().getLine();
                 // DIV só funciona com inteiros
                 if (currentType == Type.INTEGER && rightType == Type.INTEGER) {
@@ -727,6 +992,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
                 }
             } else if (ctx.MOD() != null && ctx.MOD().size() >= i) {
                 operator = "mod";
+                opKind = NodeKind.MOD_NODE;
                 operatorLine = ctx.MOD(i-1).getSymbol().getLine();
                 // MOD só funciona com inteiros
                 if (currentType == Type.INTEGER && rightType == Type.INTEGER) {
@@ -734,11 +1000,13 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
                 }
             } else if (ctx.AND() != null && ctx.AND().size() >= i) {
                 operator = "and";
+                opKind = NodeKind.AND_NODE;
                 operatorLine = ctx.AND(i-1).getSymbol().getLine();
                 resultType = currentType.unifyLogical(rightType);
             } else {
                 // Fallback
                 operator = getTermOperator(ctx, i-1);
+                opKind = NodeKind.TIMES_NODE; // default
                 operatorLine = ctx.start.getLine();
                 
                 // Tenta diferentes tipos de unificação
@@ -749,6 +1017,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
                     resultType = arithmeticResult;
                 } else if (logicalResult != Type.NO_TYPE) {
                     resultType = logicalResult;
+                    opKind = NodeKind.AND_NODE;
                 }
             }
             
@@ -758,10 +1027,27 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
                 System.exit(1);
             }
             
+            // Cria nó do operador
+            AST opNode = new AST(opKind, resultType);
+            
+            // Adiciona conversões se necessárias
+            if (resultType == Type.REAL && opKind != NodeKind.DIV_NODE && opKind != NodeKind.MOD_NODE) {
+                if (currentType == Type.INTEGER) {
+                    currentNode = Conv.createConvNode(Conv.I2R, currentNode);
+                }
+                if (rightType == Type.INTEGER) {
+                    rightNode = Conv.createConvNode(Conv.I2R, rightNode);
+                }
+            }
+            
+            opNode.addChild(currentNode);
+            opNode.addChild(rightNode);
+            
+            currentNode = opNode;
             currentType = resultType;
         }
         
-        return currentType;
+        return currentNode;
     }
 
     // Método auxiliar para identificar operador em term
@@ -776,23 +1062,32 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
 
     // Método para verificar statements compostos
     @Override
-    public Type visitCompoundStatement(PascalParser.CompoundStatementContext ctx) {
-        visit(ctx.statementList());
-        return Type.NO_TYPE;
+    public AST visitCompoundStatement(PascalParser.CompoundStatementContext ctx) {
+        AST compoundNode = visit(ctx.statementList());
+        // Encapsula em um nó compound para diferenciação estrutural
+        AST wrapperNode = new AST(NodeKind.COMPOUND_STMT_NODE, Type.NO_TYPE);
+        wrapperNode.addChild(compoundNode);
+        return wrapperNode;
     }
 
     // Método para verificar lista de statements
     @Override
-    public Type visitStatementList(PascalParser.StatementListContext ctx) {
+    public AST visitStatementList(PascalParser.StatementListContext ctx) {
+        AST stmtListNode = new AST(NodeKind.BLOCK_NODE, Type.NO_TYPE);
+        
         for (PascalParser.StatementContext stmtCtx : ctx.statement()) {
-            visit(stmtCtx);
+            AST stmtNode = visit(stmtCtx);
+            if (stmtNode != null) { // Pode ser null para emptyStatement
+                stmtListNode.addChild(stmtNode);
+            }
         }
-        return Type.NO_TYPE;
+        
+        return stmtListNode;
     }
 
     // Método para verificar statements genéricos
     @Override
-    public Type visitStatement(PascalParser.StatementContext ctx) {
+    public AST visitStatement(PascalParser.StatementContext ctx) {
         if (ctx.compoundStatement() != null) {
             return visit(ctx.compoundStatement());
         } else if (ctx.assignmentStatement() != null) {
@@ -803,15 +1098,18 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
             return visit(ctx.ifStatement());
         } else if (ctx.whileStatement() != null) {
             return visit(ctx.whileStatement());
+        } else if (ctx.emptyStatement() != null) {
+            // emptyStatement retorna null
+            return new AST(NodeKind.EMPTY_STMT_NODE, Type.NO_TYPE);
         }
-        // emptyStatement não precisa fazer nada
-        return Type.NO_TYPE;
+        return null;
     }
 
     // Método para verificar statements IF
     @Override
-    public Type visitIfStatement(PascalParser.IfStatementContext ctx) {
-        Type conditionType = visit(ctx.expression());
+    public AST visitIfStatement(PascalParser.IfStatementContext ctx) {
+        AST conditionNode = visit(ctx.expression());
+        Type conditionType = conditionNode.type;
         
         if (conditionType != Type.BOOLEAN) {
             int line = ctx.IF().getSymbol().getLine();
@@ -820,19 +1118,27 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
             System.exit(1);
         }
         
-        // Verifica os statements THEN e ELSE
-        visit(ctx.statement(0)); // THEN
+        AST ifNode = new AST(NodeKind.IF_NODE, Type.NO_TYPE);
+        ifNode.addChild(conditionNode);
+        
+        // Adiciona statement THEN
+        AST thenNode = visit(ctx.statement(0));
+        ifNode.addChild(thenNode);
+        
+        // Adiciona statement ELSE se existir
         if (ctx.statement().size() > 1) {
-            visit(ctx.statement(1)); // ELSE
+            AST elseNode = visit(ctx.statement(1));
+            ifNode.addChild(elseNode);
         }
         
-        return Type.NO_TYPE;
+        return ifNode;
     }
 
     // Método para verificar statements WHILE
     @Override
-    public Type visitWhileStatement(PascalParser.WhileStatementContext ctx) {
-        Type conditionType = visit(ctx.expression());
+    public AST visitWhileStatement(PascalParser.WhileStatementContext ctx) {
+        AST conditionNode = visit(ctx.expression());
+        Type conditionType = conditionNode.type;
         
         if (conditionType != Type.BOOLEAN) {
             int line = ctx.WHILE().getSymbol().getLine();
@@ -841,9 +1147,13 @@ public class SemanticChecker extends PascalParserBaseVisitor<Type> {
             System.exit(1);
         }
         
-        // Verifica o statement do corpo do loop
-        visit(ctx.statement());
+        AST whileNode = new AST(NodeKind.WHILE_NODE, Type.NO_TYPE);
+        whileNode.addChild(conditionNode);
         
-        return Type.NO_TYPE;
+        // Adiciona o statement do corpo do loop
+        AST bodyNode = visit(ctx.statement());
+        whileNode.addChild(bodyNode);
+        
+        return whileNode;
     }
 }
