@@ -11,7 +11,6 @@ import typing.Type;
 // Implementação dos nós da AST para Pascal.
 public class AST {
 
-    // Todos os campos são finais para simplificar
     public final NodeKind kind;
     public final int intData;
     public final float floatData;
@@ -130,7 +129,6 @@ public class AST {
                        this.kind == NodeKind.PROC_DECL_NODE || this.kind == NodeKind.FUNC_DECL_NODE ||
                        this.kind == NodeKind.PROC_CALL_NODE || this.kind == NodeKind.FUNC_CALL_NODE ||
                        this.kind == NodeKind.CONST_DECL_NODE)) {
-                // Já foi tratado acima
             } else if (this.kind == NodeKind.INT_VAL_NODE) {
                 System.err.printf(" %d", this.intData);
             }

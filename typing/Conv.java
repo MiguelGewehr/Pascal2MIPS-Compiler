@@ -22,14 +22,12 @@ public enum Conv {
             default:
                 System.err.printf("INTERNAL ERROR: invalid conversion of types!\n");
                 System.exit(1);
-                return null; // Never reached...
+                return null;
         }
     }
 
     // Classe que define as informações de unificação para os tipos em expressões.
     public static final class Unif {
-
-        // Declarei tudo como final para não precisar de getter/setter.
         public final Type type; // Tipo unificado
         public final Conv lc;   // Conversão do lado esquerdo
         public final Conv rc;   // Conversão do lado direito

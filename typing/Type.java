@@ -2,7 +2,6 @@ package typing;
 
 /**
  * Enumeração dos tipos primitivos de Pascal e classe para tipos compostos.
- * Versão melhorada com métodos de compatibilidade de tipos.
  */
 public enum Type {
     INTEGER,
@@ -138,8 +137,7 @@ public enum Type {
     }
 
     /**
-     * Tabelas de unificação para diferentes operadores (similar ao exemplo EZLang)
-     * Adaptadas para Pascal ISO 7185
+     * Tabelas de unificação para diferentes operadores 
      */
     
     // Tabela de compatibilidade para operações aritméticas (+, -, *, /, div, mod)
@@ -186,7 +184,7 @@ public enum Type {
         /*CHAR*/{NO_TYPE, NO_TYPE, CHAR,    NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE},
         /*STR*/ {NO_TYPE, NO_TYPE, NO_TYPE, STRING,  NO_TYPE, NO_TYPE, NO_TYPE},
         /*BOOL*/{NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE, BOOLEAN, NO_TYPE, NO_TYPE},
-        /*ARR*/ {NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE}, // Arrays requerem verificação especial
+        /*ARR*/ {NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE}, 
         /*NONE*/{NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE, NO_TYPE}
     };
 

@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Analisador semântico de Pascal implementado como um visitor da ParseTree do ANTLR.
-// Agora retorna nós AST ao invés de tipos diretamente.
 public class SemanticChecker extends PascalParserBaseVisitor<AST> {
     
     private StrTable st = new StrTable();
@@ -606,7 +605,6 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
                 AST exprNode = visit(exprItem.expression());
                 exprListNode.addChild(exprNode);
             }
-            // Ignorando formattedExpression por simplicidade
         }
         
         return exprListNode;
@@ -945,7 +943,6 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
 
     // Método auxiliar para identificar operador em simpleExpression
     private String getSimpleExpressionOperator(PascalParser.SimpleExpressionContext ctx, int index) {
-        // Esta é uma aproximação - em um parser real você teria acesso direto aos tokens
         if (ctx.PLUS() != null && index < ctx.PLUS().size()) return "+";
         if (ctx.MINUS() != null && index < ctx.MINUS().size()) return "-";
         if (ctx.OR() != null && index < ctx.OR().size()) return "or";

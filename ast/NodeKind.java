@@ -1,7 +1,6 @@
 package ast;
 
 // Enumeração dos tipos de nós de uma AST para Pascal ISO 7185.
-// Baseado na estrutura do EZLang mas adaptado para Pascal
 public enum NodeKind {
     // Nós do programa e estrutura
     PROGRAM_NODE,
@@ -64,7 +63,7 @@ public enum NodeKind {
     ARRAY_ACCESS_NODE,
     FUNC_CALL_NODE,
     
-    // Conversões de tipo (para futuro uso)
+    // Conversões de tipo 
     I2R_NODE,    // Integer to Real
     C2S_NODE,    // Char to String
     
