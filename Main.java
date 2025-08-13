@@ -12,13 +12,48 @@ import ast.AST;
 // Classe principal que demonstra como usar os analisadores em conjunto
 // para Pascal ISO 7185 com construção de AST e interpretação
 public class Main {
+    
+    private static boolean debugMode = false;
+    private static boolean interpretMode = true;
+    
     public static void main(String[] args) {
-        if (args.length != 1) {
-            System.out.println("Usage: java Main <pascal_file>");
+        if (args.length < 1) {
+            printUsage();
             return;
         }
         
-        String filename = args[0];
+        // Processa argumentos da linha de comando
+        String filename = null;
+        for (int i = 0; i < args.length; i++) {
+            switch (args[i]) {
+                case "-debug", "-d" -> debugMode = true;
+                case "-no-debug", "-nd" -> debugMode = false;
+                case "-interpret", "-i" -> interpretMode = true;
+                case "-no-interpret", "-ni" -> interpretMode = false;
+                case "-help", "-h" -> {
+                    printUsage();
+                    return;
+                }
+                default -> {
+                    if (!args[i].startsWith("-")) {
+                        filename = args[i];
+                    } else {
+                        System.err.println("Unknown option: " + args[i]);
+                        printUsage();
+                        return;
+                    }
+                }
+            }
+        }
+        
+        if (filename == null) {
+            System.err.println("Error: No input file specified.");
+            printUsage();
+            return;
+        }
+        
+        // Configura modo debug no interpretador
+        Interpreter.setDebugMode(debugMode);
         
         try {
             // Cria o input stream a partir do arquivo
@@ -48,35 +83,71 @@ public class Main {
             AST ast = checker.visit(tree);
             
             // Se chegou até aqui, não houve erros
-            System.out.println("SUCCESS.");
-            
-            // Imprime as tabelas de símbolos e strings
-            checker.printTables();
-            
-            // Imprime a AST em formato DOT (para stderr)
-            checker.printAST(ast);
+            if (debugMode) {
+                System.out.println("SUCCESS.");
+                
+                // Imprime as tabelas de símbolos e strings
+                checker.printTables();
+                
+                // Imprime a AST em formato DOT (para stderr)
+                checker.printAST(ast);
+            }
             
             // === INTERPRETAÇÃO ===
-            if (ast != null) {
-                System.out.println("\n" + "=".repeat(50));
-                System.out.println("STARTING INTERPRETATION");
-                System.out.println("=".repeat(50));
+            if (interpretMode && ast != null) {
+                if (debugMode) {
+                    System.out.println("\n" + "=".repeat(50));
+                    System.out.println("STARTING INTERPRETATION");
+                    System.out.println("=".repeat(50));
+                }
                 
-                Interpreter interpreter = new Interpreter();
-                interpreter.interpret(ast);
+                Interpreter interpreter = new Interpreter(debugMode);
+                try {
+                    interpreter.interpret(ast);
+                } finally {
+                    interpreter.cleanup(); // Fecha resources
+                }
                 
-                System.out.println("=".repeat(50));
-                System.out.println("INTERPRETATION COMPLETED");
-                System.out.println("=".repeat(50));
+                if (debugMode) {
+                    System.out.println("=".repeat(50));
+                    System.out.println("INTERPRETATION COMPLETED");
+                    System.out.println("=".repeat(50));
+                }
             }
             
         } catch (IOException e) {
             System.err.printf("ERROR: Could not read file '%s': %s\n", filename, e.getMessage());
             System.exit(1);
+        } catch (RuntimeException e) {
+            System.err.printf("RUNTIME ERROR: %s\n", e.getMessage());
+            if (debugMode) {
+                e.printStackTrace();
+            }
+            System.exit(1);
         } catch (Exception e) {
             System.err.printf("ERROR: %s\n", e.getMessage());
+            if (debugMode) {
+                e.printStackTrace();
+            }
             System.exit(1);
         }
+    }
+    
+    private static void printUsage() {
+        System.out.println("Usage: java Main [options] <pascal_file>");
+        System.out.println();
+        System.out.println("Options:");
+        System.out.println("  -debug, -d         Enable debug mode (shows compilation details)");
+        System.out.println("  -no-debug, -nd     Disable debug mode (default)");
+        System.out.println("  -interpret, -i     Enable interpretation (default)");
+        System.out.println("  -no-interpret, -ni Disable interpretation (compile only)");
+        System.out.println("  -help, -h          Show this help message");
+        System.out.println();
+        System.out.println("Examples:");
+        System.out.println("  java Main program.pas                  # Run with default settings");
+        System.out.println("  java Main -debug program.pas           # Run with debug information");
+        System.out.println("  java Main -no-interpret program.pas    # Compile only, don't run");
+        System.out.println("  java Main -d -ni program.pas           # Debug compile-only mode");
     }
 }
 
