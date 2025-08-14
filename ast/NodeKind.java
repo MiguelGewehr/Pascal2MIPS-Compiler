@@ -15,6 +15,7 @@ public enum NodeKind {
     
     // Tipos e arrays
     ARRAY_TYPE_NODE,
+    RANGE_NODE,          //para representar ranges como [1..10]
     
     // Subrotinas
     PROC_DECL_NODE,
@@ -63,9 +64,9 @@ public enum NodeKind {
     ARRAY_ACCESS_NODE,
     FUNC_CALL_NODE,
     
-    // Conversões de tipo 
-    I2R_NODE,    // Integer to Real
-    C2S_NODE,    // Char to String
+    // Conversões de tipo
+    I2R_NODE, // Integer to Real
+    C2S_NODE, // Char to String
     
     // Expressões parentizadas
     PAREN_EXPR_NODE;
@@ -81,6 +82,7 @@ public enum NodeKind {
             case VAR_DECL_NODE -> "var_decl";
             case VAR_LIST_NODE -> "var_list";
             case ARRAY_TYPE_NODE -> "array_type";
+            case RANGE_NODE -> "range";         
             case PROC_DECL_NODE -> "procedure";
             case FUNC_DECL_NODE -> "function";
             case PARAM_LIST_NODE -> "param_list";
@@ -122,10 +124,10 @@ public enum NodeKind {
 
     public static boolean hasData(NodeKind kind) {
         return switch(kind) {
-            case INT_VAL_NODE, REAL_VAL_NODE, CHAR_VAL_NODE, STR_VAL_NODE, 
+            case INT_VAL_NODE, REAL_VAL_NODE, CHAR_VAL_NODE, STR_VAL_NODE,
                  BOOL_VAL_NODE, VAR_USE_NODE, VAR_DECL_NODE, CONST_DECL_NODE,
                  PROC_DECL_NODE, FUNC_DECL_NODE, PROC_CALL_NODE, FUNC_CALL_NODE,
-                 PARAM_NODE -> true;
+                 PARAM_NODE, RANGE_NODE -> true;   
             default -> false;
         };
     }

@@ -216,14 +216,167 @@ public class Interpreter {
         Type varType = varDeclNode.type;
         
         if (varType == Type.ARRAY) {
-            // Para arrays, precisamos de mais informações do semantic checker
-            // Por enquanto, inicializa como array simples
-            debugPrint("Array variable " + varName + " declared (not fully implemented)");
+            // Criar o array baseado nas informações da AST
+            ArrayData arrayData = createArrayFromAST(varDeclNode);
+            arrays.put(varName, arrayData);
+            debugPrint("Array " + varName + "[" + arrayData.startIndex + ".." + 
+                      arrayData.endIndex + "] of " + arrayData.elementType + " created");
         } else {
             Object defaultValue = getDefaultValue(varType);
             memory.put(varName, defaultValue);
             debugPrint("Variable " + varName + " declared and initialized to " + defaultValue);
         }
+    }
+    
+    /**
+     * Cria um ArrayData baseado na informação da AST
+     * Versão corrigida que extrai os bounds reais do array
+     */
+    private ArrayData createArrayFromAST(AST varDeclNode) {
+        // Valores padrão (fallback)
+        int startIndex = 1;
+        int endIndex = 10;
+        Type elementType = Type.INTEGER;
+        
+        debugPrint("Creating array from AST node: " + varDeclNode.stringData);
+        debugPrint("Array declaration has " + varDeclNode.getChildCount() + " children");
+        
+        // Analisar a estrutura da AST para extrair informações do array
+        if (varDeclNode.getChildCount() > 0) {
+            // Procurar por informações de range e tipo do elemento
+            for (int i = 0; i < varDeclNode.getChildCount(); i++) {
+                AST child = varDeclNode.getChild(i);
+                debugPrint("  Child " + i + ": " + child.kind + 
+                          (child.stringData != null ? " (" + child.stringData + ")" : "") +
+                          (child.type != null ? " [" + child.type + "]" : ""));
+                
+                // Verificar se o child contém informações de range
+                ArrayBounds bounds = extractArrayBounds(child);
+                if (bounds != null) {
+                    startIndex = bounds.start;
+                    endIndex = bounds.end;
+                    debugPrint("  Found array bounds: [" + startIndex + ".." + endIndex + "]");
+                }
+                
+                // Verificar se o child contém informações do tipo do elemento
+                Type childElementType = extractElementType(child);
+                if (childElementType != null && childElementType != Type.ARRAY) {
+                    elementType = childElementType;
+                    debugPrint("  Found element type: " + elementType);
+                }
+            }
+        }
+        
+        // Se não conseguimos extrair da AST, tentar usar informações do contexto da tabela de símbolos
+        // ou fazer uma análise mais heurística baseada no nome da variável
+        if (startIndex == 1 && endIndex == 10) {
+            debugPrint("Using default bounds [1..10] - consider implementing symbol table lookup");
+        }
+        
+        return new ArrayData(startIndex, endIndex, elementType);
+    }
+    
+    /**
+     * Classe auxiliar para armazenar bounds do array
+     */
+    private static class ArrayBounds {
+        final int start;
+        final int end;
+        
+        ArrayBounds(int start, int end) {
+            this.start = start;
+            this.end = end;
+        }
+    }
+    
+    /**
+     * Extrai os bounds do array de um nó da AST
+     */
+    private ArrayBounds extractArrayBounds(AST node) {
+        // Procurar por padrões que indiquem range (ex: 1..5, 0..9, etc.)
+        if (node.kind == NodeKind.RANGE_NODE && node.getChildCount() >= 2) {
+            try {
+                Object startObj = evaluateExpression(node.getChild(0));
+                Object endObj = evaluateExpression(node.getChild(1));
+                int start = convertToInt(startObj);
+                int end = convertToInt(endObj);
+                return new ArrayBounds(start, end);
+            } catch (Exception e) {
+                debugPrint("Error extracting range bounds: " + e.getMessage());
+            }
+        }
+        
+        // Verificar se há nós filhos que possam conter informações de bounds
+        for (int i = 0; i < node.getChildCount(); i++) {
+            ArrayBounds childBounds = extractArrayBounds(node.getChild(i));
+            if (childBounds != null) {
+                return childBounds;
+            }
+        }
+        
+        // Tentar extrair de informações textuais se disponível
+        if (node.stringData != null) {
+            ArrayBounds textBounds = parseArrayBoundsFromText(node.stringData);
+            if (textBounds != null) {
+                return textBounds;
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Tenta extrair bounds do array de uma string (ex: "1..5", "[1..10]")
+     */
+    private ArrayBounds parseArrayBoundsFromText(String text) {
+        if (text == null) return null;
+        
+        // Padrões como "1..5" ou "[1..5]"
+        String pattern = text.replaceAll("[\\[\\]\\s]", "");
+        if (pattern.contains("..")) {
+            try {
+                String[] parts = pattern.split("\\.\\.");
+                if (parts.length == 2) {
+                    int start = Integer.parseInt(parts[0].trim());
+                    int end = Integer.parseInt(parts[1].trim());
+                    return new ArrayBounds(start, end);
+                }
+            } catch (NumberFormatException e) {
+                debugPrint("Could not parse array bounds from: " + text);
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Extrai o tipo do elemento de um nó da AST
+     */
+    private Type extractElementType(AST node) {
+        if (node.type != null && node.type != Type.ARRAY) {
+            return node.type;
+        }
+        
+        // Verificar se há informações de tipo nos filhos
+        for (int i = 0; i < node.getChildCount(); i++) {
+            Type childType = extractElementType(node.getChild(i));
+            if (childType != null && childType != Type.ARRAY) {
+                return childType;
+            }
+        }
+        
+        // Tentar inferir do nome do tipo se disponível
+        if (node.stringData != null) {
+            switch (node.stringData.toLowerCase()) {
+                case "integer", "int" -> { return Type.INTEGER; }
+                case "real", "float" -> { return Type.REAL; }
+                case "boolean", "bool" -> { return Type.BOOLEAN; }
+                case "char", "character" -> { return Type.CHAR; }
+                case "string" -> { return Type.STRING; }
+            }
+        }
+        
+        return null;
     }
     
     /**

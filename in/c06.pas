@@ -1,6 +1,6 @@
 program c06;
 var
-  numbers: array[1..5] of integer;
+  numbers: array[1..6] of integer;
   i: integer;
 begin
   { Teste de declaração e uso de arrays }
@@ -9,6 +9,7 @@ begin
   numbers[3] := 30;
   numbers[4] := 40;
   numbers[5] := 50;
+  numbers[6] := 60;
   
   { Acesso aos elementos }
   i := numbers[1] + numbers[2];

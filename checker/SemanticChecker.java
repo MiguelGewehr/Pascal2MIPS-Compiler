@@ -64,6 +64,14 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
     }
 
     /**
+     * Verifica se um procedimento é built-in
+     */
+    private boolean isBuiltinProcedure(String procedureName) {
+        return procedureName.equals("writeln") || procedureName.equals("write") || 
+               procedureName.equals("readln") || procedureName.equals("read");
+    }
+
+    /**
      * Testa se o dado token foi declarado antes e retorna seu tipo.
      */
     private TypeInfo checkVar(Token token) {
@@ -530,7 +538,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
     public AST visitVarDeclaration(PascalParser.VarDeclarationContext ctx) {
         
         // Processa o tipo da declaração
-        processTypeDenoter(ctx.typeDenoter());
+        AST typeNode = processTypeDenoter(ctx.typeDenoter());
         
         // Cria nó de lista de variáveis
         AST varListNode = new AST(NodeKind.VAR_LIST_NODE, Type.NO_TYPE);
@@ -542,6 +550,12 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
             // Cria nó AST para a declaração da variável
             String varName = id.getText();
             AST varDeclNode = new AST(NodeKind.VAR_DECL_NODE, varName, lastDeclType);
+            
+            // Se é um array, adiciona as informações do tipo como filho
+            if (lastDeclType == Type.ARRAY && typeNode != null) {
+                varDeclNode.addChild(typeNode);
+            }
+            
             varListNode.addChild(varDeclNode);
         }
         return varListNode;
@@ -749,50 +763,63 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         
         // ===== VALIDAÇÃO DE PARÂMETROS =====
         
-        // Obtém os parâmetros esperados
-        List<ParamEntry> expectedParams = funcEntry.getParameters();
-        
-        // Conta argumentos fornecidos
-        int providedArgCount = 0;
-        List<Type> providedArgTypes = new ArrayList<>();
-        
-        if (ctx.expressionList() != null) {
-            for (PascalParser.ExpressionItemContext exprItem : ctx.expressionList().expressionItem()) {
-                if (exprItem.expression() != null) {
-                    AST exprNode = visit(exprItem.expression());
-                    providedArgTypes.add(exprNode.type);
-                    providedArgCount++;
+        // Para procedimentos built-in, pula a validação rigorosa de parâmetros
+        if (isBuiltinProcedure(procName)) {
+            // Built-ins podem aceitar qualquer número de parâmetros
+            // Apenas processa as expressões para garantir que são válidas
+            if (ctx.expressionList() != null) {
+                for (PascalParser.ExpressionItemContext exprItem : ctx.expressionList().expressionItem()) {
+                    if (exprItem.expression() != null) {
+                        visit(exprItem.expression()); // Processa a expressão mas não valida tipo
+                    }
                 }
             }
-        }
-        
-        // Verifica número de argumentos
-        if (providedArgCount != expectedParams.size()) {
-            System.err.printf("SEMANTIC ERROR (%d): procedure '%s' expects %d arguments, but %d were provided.\n",
-                            line, procName, expectedParams.size(), providedArgCount);
-            System.exit(1);
-        }
-        
-        // Verifica tipos dos argumentos
-        for (int i = 0; i < expectedParams.size(); i++) {
-            ParamEntry expectedParam = expectedParams.get(i);
-            Type expectedType = expectedParam.getEntryType();
-            Type providedType = providedArgTypes.get(i);
+        } else {
+            // Obtém os parâmetros esperados
+            List<ParamEntry> expectedParams = funcEntry.getParameters();
             
-            // Verifica compatibilidade de tipos
-            Type unifiedType = expectedType.unifyAssignment(providedType);
+            // Conta argumentos fornecidos
+            int providedArgCount = 0;
+            List<Type> providedArgTypes = new ArrayList<>();
             
-            if (unifiedType == Type.NO_TYPE) {
-                System.err.printf("SEMANTIC ERROR (%d): argument %d of procedure '%s' expects type '%s', but got '%s'.\n",
-                                line, i + 1, procName, expectedType.toString(), providedType.toString());
+            if (ctx.expressionList() != null) {
+                for (PascalParser.ExpressionItemContext exprItem : ctx.expressionList().expressionItem()) {
+                    if (exprItem.expression() != null) {
+                        AST exprNode = visit(exprItem.expression());
+                        providedArgTypes.add(exprNode.type);
+                        providedArgCount++;
+                    }
+                }
+            }
+            
+            // Verifica número de argumentos
+            if (providedArgCount != expectedParams.size()) {
+                System.err.printf("SEMANTIC ERROR (%d): procedure '%s' expects %d arguments, but %d were provided.\n",
+                                line, procName, expectedParams.size(), providedArgCount);
                 System.exit(1);
             }
             
-            // Para parâmetros VAR, o tipo deve ser exatamente igual
-            if (expectedParam.isReference() && expectedType != providedType) {
-                System.err.printf("SEMANTIC ERROR (%d): VAR parameter %d of procedure '%s' requires exact type '%s', but got '%s'.\n",
-                                line, i + 1, procName, expectedType.toString(), providedType.toString());
-                System.exit(1);
+            // Verifica tipos dos argumentos
+            for (int i = 0; i < expectedParams.size(); i++) {
+                ParamEntry expectedParam = expectedParams.get(i);
+                Type expectedType = expectedParam.getEntryType();
+                Type providedType = providedArgTypes.get(i);
+                
+                // Verifica compatibilidade de tipos
+                Type unifiedType = expectedType.unifyAssignment(providedType);
+                
+                if (unifiedType == Type.NO_TYPE) {
+                    System.err.printf("SEMANTIC ERROR (%d): argument %d of procedure '%s' expects type '%s', but got '%s'.\n",
+                                    line, i + 1, procName, expectedType.toString(), providedType.toString());
+                    System.exit(1);
+                }
+                
+                // Para parâmetros VAR, o tipo deve ser exatamente igual
+                if (expectedParam.isReference() && expectedType != providedType) {
+                    System.err.printf("SEMANTIC ERROR (%d): VAR parameter %d of procedure '%s' requires exact type '%s', but got '%s'.\n",
+                                    line, i + 1, procName, expectedType.toString(), providedType.toString());
+                    System.exit(1);
+                }
             }
         }
         
@@ -808,8 +835,9 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
 
     /**
      * Processa um typeDenoter e define lastDeclType e lastArrayType adequadamente
+     * NOVA VERSÃO: retorna também o nó AST correspondente ao tipo
      */
-    private void processTypeDenoter(PascalParser.TypeDenoterContext ctx) {
+    private AST processTypeDenoter(PascalParser.TypeDenoterContext ctx) {
         if (ctx.IDENTIFIER() != null) {
             // Tipo simples
             String typeName = ctx.IDENTIFIER().getText();
@@ -820,14 +848,49 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
                 System.err.printf("SEMANTIC ERROR: unknown type '%s'.\n", typeName);
                 System.exit(1);
             }
+            
+            return null; // Tipos simples não precisam de nó AST adicional
+            
         } else if (ctx.arrayType() != null) {
             // Tipo array
             lastDeclType = Type.ARRAY;
             lastArrayType = processArrayType(ctx.arrayType());
+            
+            // Criar nó AST para o tipo array que inclui as informações de range
+            AST arrayTypeNode = new AST(NodeKind.ARRAY_TYPE_NODE, Type.ARRAY);
+            
+            // Adicionar nó de range como filho
+            AST rangeNode = createRangeNode(lastArrayType.getStartIndex(), lastArrayType.getEndIndex());
+            arrayTypeNode.addChild(rangeNode);
+            
+            // Adicionar informação do tipo do elemento
+            AST elementTypeNode = new AST(NodeKind.VAR_DECL_NODE, lastArrayType.getElementType().toString(), lastArrayType.getElementType());
+            arrayTypeNode.addChild(elementTypeNode);
+            
+            return arrayTypeNode;
         } else {
             lastDeclType = Type.NO_TYPE;
             lastArrayType = null;
+            return null;
         }
+    }
+    
+    /**
+     * Cria um nó RANGE_NODE para representar ranges de array
+     */
+    private AST createRangeNode(int startIndex, int endIndex) {
+        // Cria nó range com string representativa
+        String rangeString = startIndex + ".." + endIndex;
+        AST rangeNode = new AST(NodeKind.RANGE_NODE, rangeString, Type.INTEGER);
+        
+        // Adiciona nós filhos para start e end
+        AST startNode = new AST(NodeKind.INT_VAL_NODE, startIndex, Type.INTEGER);
+        AST endNode = new AST(NodeKind.INT_VAL_NODE, endIndex, Type.INTEGER);
+        
+        rangeNode.addChild(startNode);
+        rangeNode.addChild(endNode);
+        
+        return rangeNode;
     }
     
     /**
