@@ -13,7 +13,7 @@ import ast.AST;
 // para Pascal ISO 7185 com construção de AST e interpretação
 public class Main {
     
-    private static boolean debugMode = false;
+    private static boolean debugMode = true;
     private static boolean interpretMode = true;
     
     public static void main(String[] args) {

@@ -237,11 +237,31 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         Entry existing = symbolTable.lookupCurrentScope(procName);
         if (existing != null) {
             System.err.printf("SEMANTIC ERROR (%d): procedure '%s' already declared at line %d.\n", 
-                             line, procName, existing.getLine());
+                            line, procName, existing.getLine());
             System.exit(1);
         }
         
-        FuncEntry procEntry = new FuncEntry(procName, line, Type.NO_TYPE, new ArrayList<>());
+        // COLETA OS PARÂMETROS ANTES DE CRIAR A ENTRADA 
+        List<ParamEntry> paramList = new ArrayList<>();
+        
+        if (ctx.formalParameterList() != null) {
+            // Processa parâmetros temporariamente para coletar informações
+            for (PascalParser.FormalParameterSectionContext paramCtx : ctx.formalParameterList().formalParameterSection()) {
+                String typeName = paramCtx.IDENTIFIER().getText();
+                Type paramType = getTypeFromName(typeName);
+                boolean isVarParam = paramCtx.VAR() != null;
+                
+                for (TerminalNode id : paramCtx.identifierList().IDENTIFIER()) {
+                    String paramName = id.getText();
+                    int paramLine = id.getSymbol().getLine();
+                    
+                    ParamEntry paramEntry = new ParamEntry(paramName, paramLine, paramType, isVarParam);
+                    paramList.add(paramEntry);
+                }
+            }
+        }
+        
+        FuncEntry procEntry = new FuncEntry(procName, line, Type.NO_TYPE, paramList);
         symbolTable.addEntry(procName, procEntry);
         
         // Cria nó da procedure
@@ -276,18 +296,38 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         Entry existing = symbolTable.lookupCurrentScope(funcName);
         if (existing != null) {
             System.err.printf("SEMANTIC ERROR (%d): function '%s' already declared at line %d.\n", 
-                             line, funcName, existing.getLine());
+                            line, funcName, existing.getLine());
             System.exit(1);
         }
         
         Type returnType = getTypeFromName(returnTypeName);
         if (returnType == Type.NO_TYPE) {
             System.err.printf("SEMANTIC ERROR (%d): unknown return type '%s' for function '%s'.\n", 
-                             line, returnTypeName, funcName);
+                            line, returnTypeName, funcName);
             System.exit(1);
         }
         
-        FuncEntry funcEntry = new FuncEntry(funcName, line, returnType, new ArrayList<>());
+        // === COLETA OS PARÂMETROS ANTES DE CRIAR A ENTRADA ===
+        List<ParamEntry> paramList = new ArrayList<>();
+        
+        if (ctx.formalParameterList() != null) {
+            // Processa parâmetros temporariamente para coletar informações
+            for (PascalParser.FormalParameterSectionContext paramCtx : ctx.formalParameterList().formalParameterSection()) {
+                String typeName = paramCtx.IDENTIFIER().getText();
+                Type paramType = getTypeFromName(typeName);
+                boolean isVarParam = paramCtx.VAR() != null;
+                
+                for (TerminalNode id : paramCtx.identifierList().IDENTIFIER()) {
+                    String paramName = id.getText();
+                    int paramLine = id.getSymbol().getLine();
+                    
+                    ParamEntry paramEntry = new ParamEntry(paramName, paramLine, paramType, isVarParam);
+                    paramList.add(paramEntry);
+                }
+            }
+        }
+        
+        FuncEntry funcEntry = new FuncEntry(funcName, line, returnType, paramList);
         symbolTable.addEntry(funcName, funcEntry);
         
         // Cria nó da function
@@ -633,8 +673,57 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         // Verifica se é uma função (tem tipo de retorno) ou procedure (não tem)
         if (funcEntry.getEntryType() == Type.NO_TYPE) {
             System.err.printf("SEMANTIC ERROR (%d): '%s' is a procedure, cannot be used in expression.\n", 
-                             line, functionName);
+                            line, functionName);
             System.exit(1);
+        }
+        
+        // ===== NOVA VALIDAÇÃO DE PARÂMETROS =====
+        
+        // Obtém os parâmetros esperados da função
+        List<ParamEntry> expectedParams = funcEntry.getParameters();
+        
+        // Conta argumentos fornecidos
+        int providedArgCount = 0;
+        List<Type> providedArgTypes = new ArrayList<>();
+        
+        if (exprList != null) {
+            for (PascalParser.ExpressionItemContext exprItem : exprList.expressionItem()) {
+                if (exprItem.expression() != null) {
+                    AST exprNode = visit(exprItem.expression());
+                    providedArgTypes.add(exprNode.type);
+                    providedArgCount++;
+                }
+            }
+        }
+        
+        // Verifica número de argumentos
+        if (providedArgCount != expectedParams.size()) {
+            System.err.printf("SEMANTIC ERROR (%d): function '%s' expects %d arguments, but %d were provided.\n",
+                            line, functionName, expectedParams.size(), providedArgCount);
+            System.exit(1);
+        }
+        
+        // Verifica tipos dos argumentos
+        for (int i = 0; i < expectedParams.size(); i++) {
+            ParamEntry expectedParam = expectedParams.get(i);
+            Type expectedType = expectedParam.getEntryType();
+            Type providedType = providedArgTypes.get(i);
+            
+            // Verifica compatibilidade de tipos
+            Type unifiedType = expectedType.unifyAssignment(providedType);
+            
+            if (unifiedType == Type.NO_TYPE) {
+                System.err.printf("SEMANTIC ERROR (%d): argument %d of function '%s' expects type '%s', but got '%s'.\n",
+                                line, i + 1, functionName, expectedType.toString(), providedType.toString());
+                System.exit(1);
+            }
+            
+            // Para parâmetros VAR, o tipo deve ser exatamente igual
+            if (expectedParam.isReference() && expectedType != providedType) {
+                System.err.printf("SEMANTIC ERROR (%d): VAR parameter %d of function '%s' requires exact type '%s', but got '%s'.\n",
+                                line, i + 1, functionName, expectedType.toString(), providedType.toString());
+                System.exit(1);
+            }
         }
         
         return funcEntry.getEntryType();
@@ -654,6 +743,57 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         if (!(entry instanceof FuncEntry)) {
             System.err.printf("SEMANTIC ERROR (%d): '%s' is not a procedure or function.\n", line, procName);
             System.exit(1);
+        }
+        
+        FuncEntry funcEntry = (FuncEntry) entry;
+        
+        // ===== VALIDAÇÃO DE PARÂMETROS =====
+        
+        // Obtém os parâmetros esperados
+        List<ParamEntry> expectedParams = funcEntry.getParameters();
+        
+        // Conta argumentos fornecidos
+        int providedArgCount = 0;
+        List<Type> providedArgTypes = new ArrayList<>();
+        
+        if (ctx.expressionList() != null) {
+            for (PascalParser.ExpressionItemContext exprItem : ctx.expressionList().expressionItem()) {
+                if (exprItem.expression() != null) {
+                    AST exprNode = visit(exprItem.expression());
+                    providedArgTypes.add(exprNode.type);
+                    providedArgCount++;
+                }
+            }
+        }
+        
+        // Verifica número de argumentos
+        if (providedArgCount != expectedParams.size()) {
+            System.err.printf("SEMANTIC ERROR (%d): procedure '%s' expects %d arguments, but %d were provided.\n",
+                            line, procName, expectedParams.size(), providedArgCount);
+            System.exit(1);
+        }
+        
+        // Verifica tipos dos argumentos
+        for (int i = 0; i < expectedParams.size(); i++) {
+            ParamEntry expectedParam = expectedParams.get(i);
+            Type expectedType = expectedParam.getEntryType();
+            Type providedType = providedArgTypes.get(i);
+            
+            // Verifica compatibilidade de tipos
+            Type unifiedType = expectedType.unifyAssignment(providedType);
+            
+            if (unifiedType == Type.NO_TYPE) {
+                System.err.printf("SEMANTIC ERROR (%d): argument %d of procedure '%s' expects type '%s', but got '%s'.\n",
+                                line, i + 1, procName, expectedType.toString(), providedType.toString());
+                System.exit(1);
+            }
+            
+            // Para parâmetros VAR, o tipo deve ser exatamente igual
+            if (expectedParam.isReference() && expectedType != providedType) {
+                System.err.printf("SEMANTIC ERROR (%d): VAR parameter %d of procedure '%s' requires exact type '%s', but got '%s'.\n",
+                                line, i + 1, procName, expectedType.toString(), providedType.toString());
+                System.exit(1);
+            }
         }
         
         AST procCallNode = new AST(NodeKind.PROC_CALL_NODE, procName, Type.NO_TYPE);
