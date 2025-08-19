@@ -1356,4 +1356,17 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         
         return whileNode;
     }
+    /**
+     * Retorna a tabela de símbolos para uso externo
+     */
+    public SymbolTable getSymbolTable() {
+        return this.symbolTable;
+    }
+
+    /**
+     * Retorna a tabela de strings para uso externo
+     */
+    public StrTable getStrTable() {
+        return this.st;
+    }
 }
