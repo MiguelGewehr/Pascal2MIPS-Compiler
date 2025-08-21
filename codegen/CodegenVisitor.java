@@ -12,6 +12,16 @@ import java.util.List;
 
 /**
  * CodegenVisitor gera código MIPS para um programa Pascal.
+ * 
+ * FUNCIONALIDADES AINDA NÃO IMPLEMENTADAS:
+ * - Suporte completo a ponto flutuante (números reais)
+ * - Divisão real usando operações de ponto flutuante
+ * - Chamadas de procedimentos definidos pelo usuário
+ * - Procedimentos built-in read/readln para entrada de dados
+ * - Declaração e inicialização de arrays
+ * - Subrotinas (procedures e functions) definidas pelo usuário
+ * - Passagem de parâmetros por referência e valor
+ * - Escopo local de variáveis em subrotinas
  */
 public class CodegenVisitor {
     // Acumula o código MIPS gerado
@@ -23,7 +33,6 @@ public class CodegenVisitor {
     
     // Contadores para labels únicos
     private int labelCounter = 0;
-    private int stringLabelCounter = 0;
     
     // Mapeamento de variáveis para seus labels MIPS
     private Map<String, String> varLabels = new HashMap<>();
@@ -39,7 +48,6 @@ public class CodegenVisitor {
         this.strTable = stringTable;
         mipsCode.setLength(0); // Limpa o buffer
         labelCounter = 0;
-        stringLabelCounter = 0;
         varLabels.clear();
         stackOffset = 0;
         
@@ -111,7 +119,6 @@ public class CodegenVisitor {
             case PLUS_NODE -> visitBinaryOp(node, "add");
             case MINUS_NODE -> visitBinaryOp(node, "sub");
             case TIMES_NODE -> visitBinaryOp(node, "mul");
-            case DIVIDE_NODE -> visitRealDivision(node);
             case DIV_NODE -> visitIntegerDivision(node);
             case MOD_NODE -> visitModulo(node);
             
@@ -130,7 +137,6 @@ public class CodegenVisitor {
             
             // Valores
             case INT_VAL_NODE -> visitIntValue(node);
-            case REAL_VAL_NODE -> visitRealValue(node);
             case BOOL_VAL_NODE -> visitBoolValue(node);
             case CHAR_VAL_NODE -> visitCharValue(node);
             case STR_VAL_NODE -> visitStringValue(node);
@@ -138,9 +144,6 @@ public class CodegenVisitor {
             // Variáveis
             case VAR_USE_NODE -> visitVariableUse(node);
             case ARRAY_ACCESS_NODE -> visitArrayAccess(node);
-            
-            // Conversões
-            case I2R_NODE -> visitIntToReal(node);
             
             default -> {
                 // Para nós não implementados, visita os filhos
@@ -247,53 +250,40 @@ public class CodegenVisitor {
     private void visitProcedureCall(AST node) {
         String procName = node.stringData;
         
-        // Trata procedimentos built-in
-        if (isBuiltinProcedure(procName)) {
-            visitBuiltinProcedure(node);
-        } else {
-            // Chamada de procedimento definido pelo usuário
-            // TODO: Implementar quando suporte a subrotinas for adicionado
-            mipsCode.append("# Chamada de procedimento " + procName + " não implementada\n");
+        // Trata apenas procedimentos built-in básicos
+        if (procName.equals("writeln") || procName.equals("write")) {
+            visitBuiltinWrite(node);
         }
     }
 
-    private boolean isBuiltinProcedure(String name) {
-        return name.equals("writeln") || name.equals("write") || 
-               name.equals("readln") || name.equals("read");
-    }
-
-    private void visitBuiltinProcedure(AST node) {
+    private void visitBuiltinWrite(AST node) {
         String procName = node.stringData;
         
-        if (procName.equals("writeln") || procName.equals("write")) {
-            // Processa argumentos
-            if (node.getChildCount() > 0) {
-                AST argsNode = node.getChild(0);
-                for (int i = 0; i < argsNode.getChildCount(); i++) {
-                    visitNode(argsNode.getChild(i));
-                    emitPopTemp("$a0");
-                    
-                    // Determina o tipo baseado no nó da expressão
-                    AST argNode = argsNode.getChild(i);
-                    if (argNode.type == Type.INTEGER) {
-                        mipsCode.append("li $v0, 1\n"); // print integer
-                    } else if (argNode.type == Type.REAL) {
-                        mipsCode.append("li $v0, 2\n"); // print float
-                    } else if (argNode.type == Type.STRING) {
-                        mipsCode.append("li $v0, 4\n"); // print string
-                    } else {
-                        mipsCode.append("li $v0, 1\n"); // default to integer
-                    }
-                    mipsCode.append("syscall\n");
+        // Processa argumentos
+        if (node.getChildCount() > 0) {
+            AST argsNode = node.getChild(0);
+            for (int i = 0; i < argsNode.getChildCount(); i++) {
+                visitNode(argsNode.getChild(i));
+                emitPopTemp("$a0");
+                
+                // Determina o tipo baseado no nó da expressão
+                AST argNode = argsNode.getChild(i);
+                if (argNode.type == Type.INTEGER) {
+                    mipsCode.append("li $v0, 1\n"); // print integer
+                } else if (argNode.type == Type.STRING) {
+                    mipsCode.append("li $v0, 4\n"); // print string
+                } else {
+                    mipsCode.append("li $v0, 1\n"); // default to integer
                 }
-            }
-            
-            if (procName.equals("writeln")) {
-                // Imprime nova linha
-                mipsCode.append("la $a0, newline\n");
-                mipsCode.append("li $v0, 4\n");
                 mipsCode.append("syscall\n");
             }
+        }
+        
+        if (procName.equals("writeln")) {
+            // Imprime nova linha
+            mipsCode.append("la $a0, newline\n");
+            mipsCode.append("li $v0, 4\n");
+            mipsCode.append("syscall\n");
         }
     }
 
@@ -363,13 +353,6 @@ public class CodegenVisitor {
         mipsCode.append(operation + " $t0, $t0, $t1\n");
         
         // Empilha resultado
-        emitPushTemp("$t0");
-    }
-
-    private void visitRealDivision(AST node) {
-        // TODO: Implementar divisão real usando ponto flutuante
-        visitBinaryOp(node, "div");
-        mipsCode.append("mflo $t0\n");
         emitPushTemp("$t0");
     }
 
@@ -471,14 +454,6 @@ public class CodegenVisitor {
         emitPushTemp("$t0");
     }
 
-    private void visitRealValue(AST node) {
-        // TODO: Implementar suporte completo a ponto flutuante
-        // Por enquanto, converte para inteiro
-        int intValue = (int) node.floatData;
-        mipsCode.append("li $t0, " + intValue + "\n");
-        emitPushTemp("$t0");
-    }
-
     private void visitBoolValue(AST node) {
         mipsCode.append("li $t0, " + node.intData + "\n");
         emitPushTemp("$t0");
@@ -536,14 +511,6 @@ public class CodegenVisitor {
             mipsCode.append("add $t0, $t0, $t1\n");
             mipsCode.append("lw $t0, 0($t0)\n");
             emitPushTemp("$t0");
-        }
-    }
-
-    private void visitIntToReal(AST node) {
-        // Por enquanto, não faz conversão real
-        // Apenas visita o filho
-        if (node.getChildCount() > 0) {
-            visitNode(node.getChild(0));
         }
     }
 }
