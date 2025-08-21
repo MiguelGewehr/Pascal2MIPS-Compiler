@@ -1,4 +1,9 @@
 import java.io.IOException;
+import java.io.FileWriter;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -11,7 +16,6 @@ import codegen.CodegenVisitor;
 
 // Classe principal para compilação Pascal -> MIPS
 public class Main {
-    
     public static void main(String[] args) {
         if (args.length < 1) {
             System.err.println("Usage: java Main <pascal_file>");
@@ -19,7 +23,6 @@ public class Main {
         }
         
         String filename = args[0];
-        
         try {
             // Cria o input stream a partir do arquivo
             CharStream input = CharStreams.fromFileName(filename);
@@ -53,9 +56,11 @@ public class Main {
             CodegenVisitor codegen = new CodegenVisitor();
             String mipsCode = codegen.generate(ast, checker.getSymbolTable(), checker.getStrTable());
             
-            // Imprime o código MIPS gerado
-            System.out.println(mipsCode);
-
+            // === SALVA O CÓDIGO MIPS EM ARQUIVO ===
+            saveToFile(filename, mipsCode);
+            
+            System.out.println("MIPS code generated successfully!");
+            
         } catch (IOException e) {
             System.err.printf("ERROR: Could not read file '%s': %s\n", filename, e.getMessage());
             System.exit(1);
@@ -66,6 +71,34 @@ public class Main {
             System.err.printf("ERROR: %s\n", e.getMessage());
             System.exit(1);
         }
+    }
+    
+    /**
+     * Salva o código MIPS gerado em um arquivo .asm na pasta out/
+     */
+    private static void saveToFile(String inputFilename, String mipsCode) throws IOException {
+        // Cria a pasta out se não existir
+        Path outDir = Paths.get("out");
+        if (!Files.exists(outDir)) {
+            Files.createDirectories(outDir);
+        }
+        
+        // Extrai o nome do arquivo sem extensão
+        String baseName = new File(inputFilename).getName();
+        int dotIndex = baseName.lastIndexOf('.');
+        if (dotIndex > 0) {
+            baseName = baseName.substring(0, dotIndex);
+        }
+        
+        // Cria o nome do arquivo de saída
+        String outputFilename = "out/" + baseName + ".asm";
+        
+        // Escreve o código MIPS no arquivo
+        try (FileWriter writer = new FileWriter(outputFilename)) {
+            writer.write(mipsCode);
+        }
+        
+        System.out.println("Output saved to: " + outputFilename);
     }
 }
 
