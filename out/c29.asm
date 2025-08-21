@@ -1,8 +1,8 @@
 .data
 newline: .asciiz "\n"
-str_0: .asciiz 'Maior de idade'
-str_1: .asciiz 'Menor de idade'
-str_2: .asciiz 'Tem exatamente 18 anos'
+str_0: .asciiz "Maior de idade"
+str_1: .asciiz "Menor de idade"
+str_2: .asciiz "Tem exatamente 18 anos"
 
 var_idade: .word 0
 .text

@@ -58,7 +58,26 @@ public class CodegenVisitor {
         return mipsCode.toString();
     }
 
-    // Emite o cabeçalho do programa MIPS
+    // Método auxiliar para converter string Pascal para MIPS
+    private String convertPascalStringToMips(String pascalStr) {
+        if (pascalStr == null) return "\"\"";
+        
+        // Remove aspas simples se presentes
+        String content = pascalStr;
+        if (pascalStr.startsWith("'") && pascalStr.endsWith("'")) {
+            content = pascalStr.substring(1, pascalStr.length() - 1);
+        }
+        
+        // Escapa caracteres especiais para MIPS
+        content = content.replace("\\", "\\\\");  // Escape backslash
+        content = content.replace("\"", "\\\"");  // Escape aspas duplas
+        content = content.replace("\n", "\\n");   // Escape newline
+        content = content.replace("\t", "\\t");   // Escape tab
+        
+        return "\"" + content + "\"";
+    }
+
+    // Versão melhorada do emitHeader usando o método auxiliar
     private void emitHeader() {
         mipsCode.append(".data\n");
         mipsCode.append("newline: .asciiz \"\\n\"\n");
@@ -67,7 +86,8 @@ public class CodegenVisitor {
         if (strTable != null) {
             for (int i = 0; i < strTable.size(); i++) {
                 String str = strTable.get(i);
-                mipsCode.append("str_" + i + ": .asciiz " + str + "\n");
+                String mipsStr = convertPascalStringToMips(str);
+                mipsCode.append("str_" + i + ": .asciiz " + mipsStr + "\n");
             }
         }
         
