@@ -14,8 +14,6 @@ import java.util.List;
  * CodegenVisitor gera código MIPS para um programa Pascal.
  * 
  * FUNCIONALIDADES AINDA NÃO IMPLEMENTADAS:
- * - Suporte completo a ponto flutuante (números reais)
- * - Divisão real usando operações de ponto flutuante
  * - Chamadas de procedimentos definidos pelo usuário
  * - Procedimentos built-in read/readln para entrada de dados
  * - Declaração e inicialização de arrays
@@ -105,7 +103,7 @@ public class CodegenVisitor {
         return prefix + "_" + (labelCounter++);
     }
 
-    // Operações de pilha para gerenciar temporários
+    // Operações de pilha para gerenciar temporários inteiros
     private void emitPushTemp(String reg) {
         mipsCode.append("subu $sp, $sp, 4\n");
         mipsCode.append("sw " + reg + ", 0($sp)\n");
@@ -114,6 +112,19 @@ public class CodegenVisitor {
 
     private void emitPopTemp(String reg) {
         mipsCode.append("lw " + reg + ", 0($sp)\n");
+        mipsCode.append("addu $sp, $sp, 4\n");
+        stackOffset -= 4;
+    }
+
+    // Operações de pilha para gerenciar temporários float
+    private void emitPushFloat(String freg) {
+        mipsCode.append("subu $sp, $sp, 4\n");
+        mipsCode.append("swc1 " + freg + ", 0($sp)\n");
+        stackOffset += 4;
+    }
+
+    private void emitPopFloat(String freg) {
+        mipsCode.append("lwc1 " + freg + ", 0($sp)\n");
         mipsCode.append("addu $sp, $sp, 4\n");
         stackOffset -= 4;
     }
@@ -139,6 +150,7 @@ public class CodegenVisitor {
             case PLUS_NODE -> visitBinaryOp(node, "add");
             case MINUS_NODE -> visitBinaryOp(node, "sub");
             case TIMES_NODE -> visitBinaryOp(node, "mul");
+            case DIVIDE_NODE -> visitRealDivision(node);  // Nova operação para divisão real
             case DIV_NODE -> visitIntegerDivision(node);
             case MOD_NODE -> visitModulo(node);
             
@@ -157,6 +169,7 @@ public class CodegenVisitor {
             
             // Valores
             case INT_VAL_NODE -> visitIntValue(node);
+            case REAL_VAL_NODE -> visitRealValue(node);  // Novo caso para valores reais
             case BOOL_VAL_NODE -> visitBoolValue(node);
             case CHAR_VAL_NODE -> visitCharValue(node);
             case STR_VAL_NODE -> visitStringValue(node);
@@ -164,6 +177,9 @@ public class CodegenVisitor {
             // Variáveis
             case VAR_USE_NODE -> visitVariableUse(node);
             case ARRAY_ACCESS_NODE -> visitArrayAccess(node);
+            
+            // Conversões de tipo
+            case I2R_NODE -> visitIntegerToReal(node);  // Nova conversão
             
             default -> {
                 // Para nós não implementados, visita os filhos
@@ -215,7 +231,14 @@ public class CodegenVisitor {
             
             mipsCode.setLength(0);
             mipsCode.append(dataPart);
-            mipsCode.append(label + ": .word 0\n");
+            
+            // Aloca espaço baseado no tipo
+            if (node.type == Type.REAL) {
+                mipsCode.append(label + ": .float 0.0\n");  // Variável float
+            } else {
+                mipsCode.append(label + ": .word 0\n");     // Variável inteira
+            }
+            
             mipsCode.append(textPart);
         }
     }
@@ -233,19 +256,30 @@ public class CodegenVisitor {
         AST varNode = node.getChild(0);
         AST exprNode = node.getChild(1);
         
-        // Avalia a expressão (resultado fica na pilha)
+        // Avalia a expressão
         visitNode(exprNode);
-        emitPopTemp("$t0");
         
-        // Armazena na variável
+        // Armazena na variável baseado no tipo
         if (varNode.kind == NodeKind.VAR_USE_NODE) {
             String varName = varNode.stringData;
             String label = varLabels.get(varName);
             if (label != null) {
-                mipsCode.append("sw $t0, " + label + "\n");
+                if (varNode.type == Type.REAL) {
+                    emitPopFloat("$f0");
+                    mipsCode.append("swc1 $f0, " + label + "\n");
+                } else {
+                    emitPopTemp("$t0");
+                    mipsCode.append("sw $t0, " + label + "\n");
+                }
             }
         } else if (varNode.kind == NodeKind.ARRAY_ACCESS_NODE) {
-            visitArrayAssignment(varNode, "$t0");
+            if (varNode.type == Type.REAL) {
+                emitPopFloat("$f0");
+                visitArrayAssignmentFloat(varNode, "$f0");
+            } else {
+                emitPopTemp("$t0");
+                visitArrayAssignment(varNode, "$t0");
+            }
         }
     }
 
@@ -267,6 +301,24 @@ public class CodegenVisitor {
         }
     }
 
+    private void visitArrayAssignmentFloat(AST arrayNode, String valueReg) {
+        String arrayName = arrayNode.stringData;
+        AST indexNode = arrayNode.getChild(0);
+        
+        // Calcula o índice
+        visitNode(indexNode);
+        emitPopTemp("$t1"); // índice em $t1
+        
+        // Calcula endereço: base + (índice * 4)
+        String arrayLabel = varLabels.get(arrayName);
+        if (arrayLabel != null) {
+            mipsCode.append("sll $t1, $t1, 2\n"); // multiplica por 4
+            mipsCode.append("la $t2, " + arrayLabel + "\n");
+            mipsCode.append("add $t2, $t2, $t1\n");
+            mipsCode.append("swc1 " + valueReg + ", 0($t2)\n");
+        }
+    }
+
     private void visitProcedureCall(AST node) {
         String procName = node.stringData;
         
@@ -284,15 +336,20 @@ public class CodegenVisitor {
             AST argsNode = node.getChild(0);
             for (int i = 0; i < argsNode.getChildCount(); i++) {
                 visitNode(argsNode.getChild(i));
-                emitPopTemp("$a0");
                 
                 // Determina o tipo baseado no nó da expressão
                 AST argNode = argsNode.getChild(i);
-                if (argNode.type == Type.INTEGER) {
+                if (argNode.type == Type.REAL) {
+                    emitPopFloat("$f12");
+                    mipsCode.append("li $v0, 2\n"); // print float
+                } else if (argNode.type == Type.INTEGER) {
+                    emitPopTemp("$a0");
                     mipsCode.append("li $v0, 1\n"); // print integer
                 } else if (argNode.type == Type.STRING) {
+                    emitPopTemp("$a0");
                     mipsCode.append("li $v0, 4\n"); // print string
                 } else {
+                    emitPopTemp("$a0");
                     mipsCode.append("li $v0, 1\n"); // default to integer
                 }
                 mipsCode.append("syscall\n");
@@ -361,6 +418,12 @@ public class CodegenVisitor {
     private void visitBinaryOp(AST node, String operation) {
         if (node.getChildCount() != 2) return;
         
+        // Verifica se é operação com floats
+        if (node.type == Type.REAL) {
+            visitFloatBinaryOp(node, operation);
+            return;
+        }
+        
         // Avalia operandos
         visitNode(node.getChild(0));
         visitNode(node.getChild(1));
@@ -374,6 +437,45 @@ public class CodegenVisitor {
         
         // Empilha resultado
         emitPushTemp("$t0");
+    }
+
+    private void visitFloatBinaryOp(AST node, String operation) {
+        if (node.getChildCount() != 2) return;
+        
+        // Avalia operandos
+        visitNode(node.getChild(0));
+        visitNode(node.getChild(1));
+        
+        // Pop em ordem reversa
+        emitPopFloat("$f1");
+        emitPopFloat("$f0");
+        
+        // Executa operação float
+        String floatOp = switch (operation) {
+            case "add" -> "add.s";
+            case "sub" -> "sub.s";
+            case "mul" -> "mul.s";
+            default -> "add.s";
+        };
+        
+        mipsCode.append(floatOp + " $f0, $f0, $f1\n");
+        
+        // Empilha resultado
+        emitPushFloat("$f0");
+    }
+
+    private void visitRealDivision(AST node) {
+        if (node.getChildCount() != 2) return;
+        
+        visitNode(node.getChild(0));
+        visitNode(node.getChild(1));
+        
+        emitPopFloat("$f1");
+        emitPopFloat("$f0");
+        
+        mipsCode.append("div.s $f0, $f0, $f1\n");
+        
+        emitPushFloat("$f0");
     }
 
     private void visitIntegerDivision(AST node) {
@@ -448,6 +550,15 @@ public class CodegenVisitor {
     private void visitComparison(AST node, String operation) {
         if (node.getChildCount() != 2) return;
         
+        // Verifica se é comparação de floats
+        AST left = node.getChild(0);
+        AST right = node.getChild(1);
+        
+        if (left.type == Type.REAL || right.type == Type.REAL) {
+            visitFloatComparison(node, operation);
+            return;
+        }
+        
         visitNode(node.getChild(0));
         visitNode(node.getChild(1));
         
@@ -469,9 +580,78 @@ public class CodegenVisitor {
         emitPushTemp("$t0");
     }
 
+    private void visitFloatComparison(AST node, String operation) {
+        if (node.getChildCount() != 2) return;
+        
+        visitNode(node.getChild(0));
+        visitNode(node.getChild(1));
+        
+        emitPopFloat("$f1");
+        emitPopFloat("$f0");
+        
+        String instruction = switch (operation) {
+            case "eq" -> "c.eq.s";
+            case "ne" -> "c.eq.s";  // negamos depois
+            case "lt" -> "c.lt.s";
+            case "le" -> "c.le.s";
+            case "gt" -> "c.lt.s";  // trocamos operandos
+            case "ge" -> "c.le.s";  // trocamos operandos
+            default -> "c.eq.s";
+        };
+        
+        if (operation.equals("gt") || operation.equals("ge")) {
+            mipsCode.append(instruction + " $f1, $f0\n"); // operandos trocados
+        } else {
+            mipsCode.append(instruction + " $f0, $f1\n");
+        }
+        
+        // Converte resultado da comparação para inteiro
+        String trueLabel = generateLabel("true_cmp");
+        String endLabel = generateLabel("end_cmp");
+        
+        if (operation.equals("ne")) {
+            mipsCode.append("bc1f " + trueLabel + "\n"); // salta se falso (diferente)
+            mipsCode.append("li $t0, 0\n");
+            mipsCode.append("j " + endLabel + "\n");
+            mipsCode.append(trueLabel + ":\n");
+            mipsCode.append("li $t0, 1\n");
+        } else {
+            mipsCode.append("bc1t " + trueLabel + "\n"); // salta se verdadeiro
+            mipsCode.append("li $t0, 0\n");
+            mipsCode.append("j " + endLabel + "\n");
+            mipsCode.append(trueLabel + ":\n");
+            mipsCode.append("li $t0, 1\n");
+        }
+        
+        mipsCode.append(endLabel + ":\n");
+        emitPushTemp("$t0");
+    }
+
     private void visitIntValue(AST node) {
         mipsCode.append("li $t0, " + node.intData + "\n");
         emitPushTemp("$t0");
+    }
+
+    private void visitRealValue(AST node) {
+        // Para valores reais, criamos uma constante float na seção .data
+        String floatLabel = generateLabel("float_const");
+        
+        // Insere declaração na seção .data
+        String currentText = mipsCode.toString();
+        int dataEnd = currentText.indexOf(".text");
+        if (dataEnd != -1) {
+            String dataPart = currentText.substring(0, dataEnd);
+            String textPart = currentText.substring(dataEnd);
+            
+            mipsCode.setLength(0);
+            mipsCode.append(dataPart);
+            mipsCode.append(floatLabel + ": .float " + node.floatData + "\n");
+            mipsCode.append(textPart);
+        }
+        
+        // Carrega o valor float
+        mipsCode.append("lwc1 $f0, " + floatLabel + "\n");
+        emitPushFloat("$f0");
     }
 
     private void visitBoolValue(AST node) {
@@ -506,12 +686,22 @@ public class CodegenVisitor {
         String label = varLabels.get(varName);
         
         if (label != null) {
-            mipsCode.append("lw $t0, " + label + "\n");
-            emitPushTemp("$t0");
+            if (node.type == Type.REAL) {
+                mipsCode.append("lwc1 $f0, " + label + "\n");
+                emitPushFloat("$f0");
+            } else {
+                mipsCode.append("lw $t0, " + label + "\n");
+                emitPushTemp("$t0");
+            }
         } else {
             // Pode ser uma constante
-            mipsCode.append("li $t0, 0\n"); // valor padrão
-            emitPushTemp("$t0");
+            if (node.type == Type.REAL) {
+                mipsCode.append("li.s $f0, 0.0\n");
+                emitPushFloat("$f0");
+            } else {
+                mipsCode.append("li $t0, 0\n");
+                emitPushTemp("$t0");
+            }
         }
     }
 
@@ -529,8 +719,28 @@ public class CodegenVisitor {
             mipsCode.append("sll $t1, $t1, 2\n"); // multiplica por 4
             mipsCode.append("la $t0, " + arrayLabel + "\n");
             mipsCode.append("add $t0, $t0, $t1\n");
-            mipsCode.append("lw $t0, 0($t0)\n");
-            emitPushTemp("$t0");
+            
+            if (node.type == Type.REAL) {
+                mipsCode.append("lwc1 $f0, 0($t0)\n");
+                emitPushFloat("$f0");
+            } else {
+                mipsCode.append("lw $t0, 0($t0)\n");
+                emitPushTemp("$t0");
+            }
         }
+    }
+
+    private void visitIntegerToReal(AST node) {
+        if (node.getChildCount() != 1) return;
+        
+        // Avalia o valor inteiro
+        visitNode(node.getChild(0));
+        emitPopTemp("$t0");
+        
+        // Converte inteiro para float
+        mipsCode.append("mtc1 $t0, $f0\n");    // move para coprocessador
+        mipsCode.append("cvt.s.w $f0, $f0\n"); // converte word para single
+        
+        emitPushFloat("$f0");
     }
 }
