@@ -16,7 +16,6 @@ import java.util.List;
  * FUNCIONALIDADES AINDA NÃO IMPLEMENTADAS:
  * - Chamadas de procedimentos definidos pelo usuário
  * - Procedimentos built-in read/readln para entrada de dados
- * - Declaração e inicialização de arrays
  * - Subrotinas (procedures e functions) definidas pelo usuário
  * - Passagem de parâmetros por referência e valor
  * - Escopo local de variáveis em subrotinas
@@ -35,8 +34,24 @@ public class CodegenVisitor {
     // Mapeamento de variáveis para seus labels MIPS
     private Map<String, String> varLabels = new HashMap<>();
     
+    // Informações sobre arrays (nome -> [tamanho, tipo])
+    private Map<String, ArrayInfo> arrayInfo = new HashMap<>();
+    
     // Stack para gerenciar registradores temporários
     private int stackOffset = 0;
+    
+    // Classe auxiliar para informações de array
+    private static class ArrayInfo {
+        public final int size;
+        public final Type elementType;
+        public final int startIndex;
+        
+        public ArrayInfo(int size, Type elementType, int startIndex) {
+            this.size = size;
+            this.elementType = elementType;
+            this.startIndex = startIndex;
+        }
+    }
     
     /**
      * Gera o código MIPS para o programa fornecido.
@@ -47,6 +62,7 @@ public class CodegenVisitor {
         mipsCode.setLength(0); // Limpa o buffer
         labelCounter = 0;
         varLabels.clear();
+        arrayInfo.clear();
         stackOffset = 0;
         
         emitHeader();          // Emite cabeçalho MIPS
@@ -139,6 +155,8 @@ public class CodegenVisitor {
             case CONST_SECTION_NODE -> visitConstSection(node);
             case VAR_SECTION_NODE -> visitVarSection(node);
             case VAR_DECL_NODE -> visitVarDeclaration(node);
+            case ARRAY_TYPE_NODE -> visitArrayType(node);
+            case RANGE_NODE -> visitRange(node);
             case COMPOUND_STMT_NODE -> visitCompoundStatement(node);
             case ASSIGN_NODE -> visitAssignment(node);
             case PROC_CALL_NODE -> visitProcedureCall(node);
@@ -222,6 +240,48 @@ public class CodegenVisitor {
         String label = "var_" + varName;
         varLabels.put(varName, label);
         
+        // Verifica se é declaração de array
+        if (node.getChildCount() > 0 && node.getChild(0).kind == NodeKind.ARRAY_TYPE_NODE) {
+            visitArrayDeclaration(node);
+        } else {
+            // Declaração de variável simples
+            insertVariableDeclaration(label, node.type);
+        }
+    }
+    
+    private void visitArrayDeclaration(AST varDeclNode) {
+        String varName = varDeclNode.stringData;
+        String label = varLabels.get(varName);
+        AST arrayTypeNode = varDeclNode.getChild(0);
+        
+        if (arrayTypeNode.getChildCount() >= 2) {
+            AST rangeNode = arrayTypeNode.getChild(0);
+            // O tipo do elemento está no segundo filho do ARRAY_TYPE_NODE
+            Type elementType = arrayTypeNode.getChild(1).type;
+            
+            // Extrai informações do range
+            int startIndex = 0, endIndex = 0;
+            if (rangeNode.getChildCount() == 2) {
+                AST startNode = rangeNode.getChild(0);
+                AST endNode = rangeNode.getChild(1);
+                
+                if (startNode.kind == NodeKind.INT_VAL_NODE) {
+                    startIndex = startNode.intData;
+                }
+                if (endNode.kind == NodeKind.INT_VAL_NODE) {
+                    endIndex = endNode.intData;
+                }
+            }
+            
+            int size = endIndex - startIndex + 1;
+            arrayInfo.put(varName, new ArrayInfo(size, elementType, startIndex));
+            
+            // Insere declaração do array na seção .data
+            insertArrayDeclaration(label, size, elementType);
+        }
+    }
+    
+    private void insertVariableDeclaration(String label, Type type) {
         // Insere declaração na seção .data (será movida para o local correto)
         String currentText = mipsCode.toString();
         int dataEnd = currentText.indexOf(".text");
@@ -233,13 +293,60 @@ public class CodegenVisitor {
             mipsCode.append(dataPart);
             
             // Aloca espaço baseado no tipo
-            if (node.type == Type.REAL) {
+            if (type == Type.REAL) {
                 mipsCode.append(label + ": .float 0.0\n");  // Variável float
             } else {
                 mipsCode.append(label + ": .word 0\n");     // Variável inteira
             }
             
             mipsCode.append(textPart);
+        }
+    }
+    
+    private void insertArrayDeclaration(String label, int size, Type elementType) {
+        // Insere declaração do array na seção .data
+        String currentText = mipsCode.toString();
+        int dataEnd = currentText.indexOf(".text");
+        if (dataEnd != -1) {
+            String dataPart = currentText.substring(0, dataEnd);
+            String textPart = currentText.substring(dataEnd);
+            
+            mipsCode.setLength(0);
+            mipsCode.append(dataPart);
+            
+            // Aloca espaço para o array baseado no tipo do elemento
+            if (elementType == Type.REAL) {
+                mipsCode.append(label + ": .float ");
+                for (int i = 0; i < size; i++) {
+                    mipsCode.append("0.0");
+                    if (i < size - 1) mipsCode.append(", ");
+                }
+                mipsCode.append("\n");
+            } else {
+                mipsCode.append(label + ": .word ");
+                for (int i = 0; i < size; i++) {
+                    mipsCode.append("0");
+                    if (i < size - 1) mipsCode.append(", ");
+                }
+                mipsCode.append("\n");
+            }
+            
+            mipsCode.append(textPart);
+        }
+    }
+    
+    private void visitArrayType(AST node) {
+        // Processa o tipo array - os filhos já são visitados pelo visitNode
+        for (int i = 0; i < node.getChildCount(); i++) {
+            visitNode(node.getChild(i));
+        }
+    }
+    
+    private void visitRange(AST node) {
+        // Processa o range do array - os valores são acessados diretamente
+        // nos métodos que precisam deles
+        for (int i = 0; i < node.getChildCount(); i++) {
+            visitNode(node.getChild(i));
         }
     }
 
@@ -291,6 +398,12 @@ public class CodegenVisitor {
         visitNode(indexNode);
         emitPopTemp("$t1"); // índice em $t1
         
+        // Ajusta o índice baseado no startIndex do array
+        ArrayInfo info = arrayInfo.get(arrayName);
+        if (info != null && info.startIndex != 0) {
+            mipsCode.append("addi $t1, $t1, " + (-info.startIndex) + "\n");
+        }
+        
         // Calcula endereço: base + (índice * 4)
         String arrayLabel = varLabels.get(arrayName);
         if (arrayLabel != null) {
@@ -308,6 +421,12 @@ public class CodegenVisitor {
         // Calcula o índice
         visitNode(indexNode);
         emitPopTemp("$t1"); // índice em $t1
+        
+        // Ajusta o índice baseado no startIndex do array
+        ArrayInfo info = arrayInfo.get(arrayName);
+        if (info != null && info.startIndex != 0) {
+            mipsCode.append("addi $t1, $t1, " + (-info.startIndex) + "\n");
+        }
         
         // Calcula endereço: base + (índice * 4)
         String arrayLabel = varLabels.get(arrayName);
@@ -712,6 +831,12 @@ public class CodegenVisitor {
         // Calcula o índice
         visitNode(indexNode);
         emitPopTemp("$t1"); // índice
+        
+        // Ajusta o índice baseado no startIndex do array
+        ArrayInfo info = arrayInfo.get(arrayName);
+        if (info != null && info.startIndex != 0) {
+            mipsCode.append("addi $t1, $t1, " + (-info.startIndex) + "\n");
+        }
         
         // Calcula endereço: base + (índice * 4)
         String arrayLabel = varLabels.get(arrayName);
