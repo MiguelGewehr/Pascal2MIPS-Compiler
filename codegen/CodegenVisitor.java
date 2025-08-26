@@ -444,6 +444,8 @@ public class CodegenVisitor {
         // Trata apenas procedimentos built-in básicos
         if (procName.equals("writeln") || procName.equals("write")) {
             visitBuiltinWrite(node);
+        } else if (procName.equals("read") || procName.equals("readln")) {
+            visitBuiltinRead(node);
         }
     }
 
@@ -483,6 +485,86 @@ public class CodegenVisitor {
         }
     }
 
+    private void visitBuiltinRead(AST node) {
+        String procName = node.stringData;
+        
+        // Processa argumentos (variáveis para ler)
+        if (node.getChildCount() > 0) {
+            AST argsNode = node.getChild(0);
+            for (int i = 0; i < argsNode.getChildCount(); i++) {
+                AST argNode = argsNode.getChild(i);
+                
+                // Verifica se é uma variável ou acesso a array
+                if (argNode.kind == NodeKind.VAR_USE_NODE) {
+                    readIntoVariable(argNode);
+                } else if (argNode.kind == NodeKind.ARRAY_ACCESS_NODE) {
+                    readIntoArrayElement(argNode);
+                }
+            }
+        }
+    }
+
+    private void readIntoVariable(AST varNode) {
+        String varName = varNode.stringData;
+        String label = varLabels.get(varName);
+        
+        if (label != null) {
+            if (varNode.type == Type.REAL) {
+                // Lê um float
+                mipsCode.append("li $v0, 6\n");      // syscall para ler float
+                mipsCode.append("syscall\n");
+                mipsCode.append("swc1 $f0, " + label + "\n"); // armazena o float lido
+            } else if (varNode.type == Type.INTEGER) {
+                // Lê um inteiro
+                mipsCode.append("li $v0, 5\n");      // syscall para ler inteiro
+                mipsCode.append("syscall\n");
+                mipsCode.append("sw $v0, " + label + "\n"); // armazena o inteiro lido
+            } else if (varNode.type == Type.CHAR) {
+                // Lê um caractere
+                mipsCode.append("li $v0, 12\n");     // syscall para ler caractere
+                mipsCode.append("syscall\n");
+                mipsCode.append("sw $v0, " + label + "\n"); // armazena o caractere lido
+            }
+        }
+    }
+
+    private void readIntoArrayElement(AST arrayNode) {
+        String arrayName = arrayNode.stringData;
+        AST indexNode = arrayNode.getChild(0);
+        
+        // Calcula o índice do array
+        visitNode(indexNode);
+        emitPopTemp("$t1"); // índice em $t1
+        
+        // Ajusta o índice baseado no startIndex do array
+        ArrayInfo info = arrayInfo.get(arrayName);
+        if (info != null && info.startIndex != 0) {
+            mipsCode.append("addi $t1, $t1, " + (-info.startIndex) + "\n");
+        }
+        
+        // Calcula endereço: base + (índice * 4)
+        String arrayLabel = varLabels.get(arrayName);
+        if (arrayLabel != null) {
+            mipsCode.append("sll $t1, $t1, 2\n"); // multiplica por 4
+            mipsCode.append("la $t2, " + arrayLabel + "\n");
+            mipsCode.append("add $t2, $t2, $t1\n"); // $t2 = endereço do elemento
+            
+            // Lê o valor baseado no tipo do array
+            if (arrayNode.type == Type.REAL) {
+                mipsCode.append("li $v0, 6\n");       // syscall para ler float
+                mipsCode.append("syscall\n");
+                mipsCode.append("swc1 $f0, 0($t2)\n"); // armazena no elemento do array
+            } else if (arrayNode.type == Type.INTEGER) {
+                mipsCode.append("li $v0, 5\n");       // syscall para ler inteiro
+                mipsCode.append("syscall\n");
+                mipsCode.append("sw $v0, 0($t2)\n");  // armazena no elemento do array
+            } else if (arrayNode.type == Type.CHAR) {
+                mipsCode.append("li $v0, 12\n");      // syscall para ler caractere
+                mipsCode.append("syscall\n");
+                mipsCode.append("sw $v0, 0($t2)\n");  // armazena no elemento do array
+            }
+        }
+    }
     private void visitIfStatement(AST node) {
         if (node.getChildCount() < 2) return;
         
