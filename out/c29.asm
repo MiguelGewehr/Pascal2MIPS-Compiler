@@ -8,6 +8,7 @@ var_idade: .word 0
 .text
 .globl main
 main:
+move $fp, $sp
 # Variáveis globais
 li $t0, 18
 subu $sp, $sp, 4
@@ -83,5 +84,11 @@ syscall
 j endif_3
 else_2:
 endif_3:
+j end_main_4
+
+end_main_4:
+j end_main_5
+
+end_main_5:
 li $v0, 10
 syscall
