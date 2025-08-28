@@ -507,26 +507,32 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Entrando em processParameterList()");
         List<ParameterInfo> parameters = new ArrayList<>();
         int offset = 8; // Começa após $ra (4) e $fp (4)
-        
+    
+        // A estrutura da AST para parâmetros é: PARAM_LIST_NODE -> PARAM_LIST_NODE (seção) -> PARAM_NODE
+        // Portanto, precisamos de um loop aninhado para atravessar as seções e depois os parâmetros.
         for (int i = 0; i < paramListNode.getChildCount(); i++) {
-            AST paramNode = paramListNode.getChild(i);
-            if (paramNode.kind == NodeKind.PARAM_NODE) {
-                String paramName = paramNode.stringData;
-                Type paramType = paramNode.type;
-                boolean isByRef = paramNode.intData == 1; // 1 = var parameter, 0 = value parameter
-                
-                ParameterInfo paramInfo = new ParameterInfo(paramName, paramType, isByRef, offset);
-                parameters.add(paramInfo);
-                
-                // CORREÇÃO: Armazenar o offset do parâmetro no contexto atual
-                // Mas não usar localVarOffsets, pois isso confunde com variáveis locais
-                if (currentFunction != null) {
-                    // Os parâmetros são acessados através de offset positivo do $fp
-                    // enquanto variáveis locais usam offset negativo
-                    currentFunction.localVarOffsets.put(paramName, offset);
+            AST paramSectionNode = paramListNode.getChild(i);
+            if (paramSectionNode.kind == NodeKind.PARAM_LIST_NODE) {
+                for (int j = 0; j < paramSectionNode.getChildCount(); j++) {
+                    AST paramNode = paramSectionNode.getChild(j);
+                    if (paramNode.kind == NodeKind.PARAM_NODE) {
+                        String paramName = paramNode.stringData;
+                        Type paramType = paramNode.type;
+                        // Assumindo que a informação 'by reference' está no intData do nó da AST
+                        boolean isByRef = paramNode.intData == 1; 
+                        
+                        ParameterInfo paramInfo = new ParameterInfo(paramName, paramType, isByRef, offset);
+                        parameters.add(paramInfo);
+                        
+                        if (currentFunction != null) {
+                            // Armazena o offset do parâmetro para acesso posterior.
+                            // Parâmetros têm offsets positivos em relação ao $fp.
+                            currentFunction.localVarOffsets.put(paramName, offset);
+                        }
+                        
+                        offset += 4; // Cada parâmetro (valor ou endereço) ocupa 4 bytes
+                    }
                 }
-                
-                offset += 4; // Cada parâmetro ocupa 4 bytes
             }
         }
         
