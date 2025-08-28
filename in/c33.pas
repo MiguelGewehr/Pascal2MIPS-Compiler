@@ -1,16 +1,16 @@
-program TesteFuncao;
+program TestProcedureNoParams;
 
 var
-    resultado: integer;
+    counter: integer;
 
-{ Função que dobra um número }
-function dobro(x: integer): integer;
+procedure incrementCounter;
 begin
-    dobro := x * 2;
+    counter := counter + 1;
 end;
 
-{ Programa principal }
 begin
-    resultado := dobro(5);
-    writeln('Dobro de 5: ', resultado);
+    counter := 0;
+    incrementCounter;
+    incrementCounter;
+    writeln('Counter value: ', counter);
 end.

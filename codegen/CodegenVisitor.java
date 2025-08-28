@@ -12,17 +12,6 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Stack;
 
-/**
- * CodegenVisitor gera código MIPS para um programa Pascal.
- * 
- * FUNCIONALIDADES IMPLEMENTADAS:
- * - Chamadas de procedimentos e funções definidos pelo usuário
- * - Procedimentos built-in read/readln para entrada de dados
- * - Subrotinas (procedures e functions) definidas pelo usuário
- * - Passagem de parâmetros por valor e referência
- * - Escopo local de variáveis em subrotinas
- * - Gerenciamento de stack frame
- */
 public class CodegenVisitor {
     // Acumula o código MIPS gerado
     private StringBuilder mipsCode = new StringBuilder();
@@ -116,6 +105,7 @@ public class CodegenVisitor {
      * Gera o código MIPS para o programa fornecido.
      */
     public String generate(AST program, SymbolTable symTable, StrTable stringTable) {
+        System.out.println("DEBUG: Entrando em generate()");
         this.symbolTable = symTable;
         this.strTable = stringTable;
         mipsCode.setLength(0); // Limpa o buffer
@@ -131,11 +121,13 @@ public class CodegenVisitor {
         visitNode(program);    // Visita todos os nós da AST
         emitFooter();          // Emite rodapé MIPS
         
+        System.out.println("DEBUG: Saindo de generate()");
         return mipsCode.toString();
     }
 
     // Método auxiliar para converter string Pascal para MIPS
     private String convertPascalStringToMips(String pascalStr) {
+        System.out.println("DEBUG: Entrando em convertPascalStringToMips()");
         if (pascalStr == null) return "\"\"";
         
         // Remove aspas simples se presentes
@@ -150,11 +142,13 @@ public class CodegenVisitor {
         content = content.replace("\n", "\\n");   // Escape newline
         content = content.replace("\t", "\\t");   // Escape tab
         
+        System.out.println("DEBUG: Saindo de convertPascalStringToMips()");
         return "\"" + content + "\"";
     }
 
     // Versão melhorada do emitHeader usando o método auxiliar
     private void emitHeader() {
+        System.out.println("DEBUG: Entrando em emitHeader()");
         mipsCode.append(".data\n");
         mipsCode.append("newline: .asciiz \"\\n\"\n");
         
@@ -170,48 +164,66 @@ public class CodegenVisitor {
         mipsCode.append("\n.text\n.globl main\nmain:\n");
         // Inicializa frame pointer para main
         mipsCode.append("move $fp, $sp\n");
+        System.out.println("DEBUG: Saindo de emitHeader()");
     }
 
     // Emite o rodapé do programa MIPS
     private void emitFooter() {
+        System.out.println("DEBUG: Entrando em emitFooter()");
         mipsCode.append("li $v0, 10\n"); // Syscall para encerrar programa
         mipsCode.append("syscall\n");
+        System.out.println("DEBUG: Saindo de emitFooter()");
     }
 
     // Gera um label único
     private String generateLabel(String prefix) {
-        return prefix + "_" + (labelCounter++);
+        System.out.println("DEBUG: Entrando em generateLabel()");
+        String label = prefix + "_" + (labelCounter++);
+        System.out.println("DEBUG: Saindo de generateLabel()");
+        return label;
     }
 
     // Operações de pilha para gerenciar temporários inteiros
     private void emitPushTemp(String reg) {
+        System.out.println("DEBUG: Entrando em emitPushTemp()");
         mipsCode.append("subu $sp, $sp, 4\n");
         mipsCode.append("sw " + reg + ", 0($sp)\n");
         stackOffset += 4;
+        System.out.println("DEBUG: Saindo de emitPushTemp()");
     }
 
     private void emitPopTemp(String reg) {
+        System.out.println("DEBUG: Entrando em emitPopTemp()");
         mipsCode.append("lw " + reg + ", 0($sp)\n");
         mipsCode.append("addu $sp, $sp, 4\n");
         stackOffset -= 4;
+        System.out.println("DEBUG: Saindo de emitPopTemp()");
     }
 
     // Operações de pilha para gerenciar temporários float
     private void emitPushFloat(String freg) {
+        System.out.println("DEBUG: Entrando em emitPushFloat()");
         mipsCode.append("subu $sp, $sp, 4\n");
         mipsCode.append("swc1 " + freg + ", 0($sp)\n");
         stackOffset += 4;
+        System.out.println("DEBUG: Saindo de emitPushFloat()");
     }
 
     private void emitPopFloat(String freg) {
+        System.out.println("DEBUG: Entrando em emitPopFloat()");
         mipsCode.append("lwc1 " + freg + ", 0($sp)\n");
         mipsCode.append("addu $sp, $sp, 4\n");
         stackOffset -= 4;
+        System.out.println("DEBUG: Saindo de emitPopFloat()");
     }
 
     // Despacha para o método apropriado baseado no tipo do nó
     private void visitNode(AST node) {
-        if (node == null) return;
+        System.out.println("DEBUG: Visitando nó: " + node.kind);
+        if (node == null) {
+            System.out.println("DEBUG: Nó nulo, ignorando.");
+            return;
+        }
         
         switch (node.kind) {
             case PROGRAM_NODE -> visitProgram(node);
@@ -272,21 +284,26 @@ public class CodegenVisitor {
             
             default -> {
                 // Para nós não implementados, visita os filhos
+                System.out.println("DEBUG: Nó não reconhecido, visitando filhos: " + node.kind);
                 for (int i = 0; i < node.getChildCount(); i++) {
                     visitNode(node.getChild(i));
                 }
             }
         }
+        System.out.println("DEBUG: Saindo de visitNode() para: " + node.kind);
     }
 
     private void visitProgram(AST node) {
+        System.out.println("DEBUG: Entrando em visitProgram()");
         // Visita o bloco principal do programa
         if (node.getChildCount() > 0) {
             visitNode(node.getChild(0));
         }
+        System.out.println("DEBUG: Saindo de visitProgram()");
     }
 
     private void visitBlock(AST node) {
+        System.out.println("DEBUG: Entrando em visitBlock()");
         // Se estamos no programa principal, processa primeiro as outras seções
         if (currentFunction == null) {
             // Processa tudo exceto funções/procedimentos primeiro
@@ -318,14 +335,18 @@ public class CodegenVisitor {
                 visitNode(child);
             }
         }
+        System.out.println("DEBUG: Saindo de visitBlock()");
     }
     private void visitConstSection(AST node) {
+        System.out.println("DEBUG: Entrando em visitConstSection()");
         // Constantes são processadas durante a análise semântica
         // Não precisamos gerar código especial aqui
+        System.out.println("DEBUG: Saindo de visitConstSection()");
     }
 
     // IMPLEMENTAÇÃO: Declaração de função
     private void visitFunctionDeclaration(AST node) {
+        System.out.println("DEBUG: Entrando em visitFunctionDeclaration() para: " + node.stringData);
         String funcName = node.stringData;
         Type returnType = node.type;
         String label = "func_" + funcName;
@@ -375,10 +396,12 @@ public class CodegenVisitor {
         // Remove contexto da função
         functionStack.pop();
         currentFunction = functionStack.isEmpty() ? null : functionStack.peek();
+        System.out.println("DEBUG: Saindo de visitFunctionDeclaration() para: " + node.stringData);
     }
 
     // IMPLEMENTAÇÃO: Declaração de procedimento
     private void visitProcedureDeclaration(AST node) {
+        System.out.println("DEBUG: Entrando em visitProcedureDeclaration() para: " + node.stringData);
         String procName = node.stringData;
         String label = "proc_" + procName;
         
@@ -427,21 +450,27 @@ public class CodegenVisitor {
         // Remove contexto do procedimento
         functionStack.pop();
         currentFunction = functionStack.isEmpty() ? null : functionStack.peek();
+        System.out.println("DEBUG: Saindo de visitProcedureDeclaration() para: " + node.stringData);
     }
 
     // Lista de parâmetros
     private void visitParameterList(AST node) {
+        System.out.println("DEBUG: Entrando em visitParameterList()");
         // Processado durante visitFunctionDeclaration/visitProcedureDeclaration
         // Não precisa fazer nada aqui
+        System.out.println("DEBUG: Saindo de visitParameterList()");
     }
 
     // Declaração de parâmetro
     private void visitParameterDeclaration(AST node) {
+        System.out.println("DEBUG: Entrando em visitParameterDeclaration()");
         // Processado durante processParameterList
         // Não precisa fazer nada aqui
+        System.out.println("DEBUG: Saindo de visitParameterDeclaration()");
     }
 
     private List<ParameterInfo> processParameterList(AST paramListNode) {
+        System.out.println("DEBUG: Entrando em processParameterList()");
         List<ParameterInfo> parameters = new ArrayList<>();
         int offset = 8; // Começa após $ra (4) e $fp (4)
         
@@ -471,10 +500,12 @@ public class CodegenVisitor {
             currentFunction.parameterSize = offset - 8;
         }
         
+        System.out.println("DEBUG: Saindo de processParameterList()");
         return parameters;
     }
     // IMPLEMENTAÇÃO: Prólogo da função
     private void emitFunctionProlog(List<ParameterInfo> parameters) {
+        System.out.println("DEBUG: Entrando em emitFunctionProlog()");
         // Salva registradores
         mipsCode.append("subu $sp, $sp, 8\n"); // Espaço para $ra e $fp
         mipsCode.append("sw $ra, 4($sp)\n");   // Salva return address
@@ -483,10 +514,12 @@ public class CodegenVisitor {
         
         // Reserva espaço para variáveis locais (será calculado dinamicamente)
         // Não fazemos isso aqui pois não sabemos ainda quantas variáveis locais haverá
+        System.out.println("DEBUG: Saindo de emitFunctionProlog()");
     }
 
     // IMPLEMENTAÇÃO: Epílogo da função
     private void emitFunctionEpilog() {
+        System.out.println("DEBUG: Entrando em emitFunctionEpilog()");
         // Se há variáveis locais alocadas, libera o espaço
         if (currentFunction != null && currentFunction.localVarSize > 0) {
             mipsCode.append("addu $sp, $sp, " + currentFunction.localVarSize + "\n");
@@ -499,9 +532,11 @@ public class CodegenVisitor {
         
         // Retorna
         mipsCode.append("jr $ra\n");
+        System.out.println("DEBUG: Saindo de emitFunctionEpilog()");
     }
 
     private void visitFunctionCall(AST node) {
+        System.out.println("DEBUG: Entrando em visitFunctionCall() para: " + node.stringData);
         String funcName = node.stringData;
         FunctionInfo funcInfo = functionInfo.get(funcName);
         
@@ -557,10 +592,12 @@ public class CodegenVisitor {
                 }
             }
         }
+        System.out.println("DEBUG: Saindo de visitFunctionCall() para: " + node.stringData);
     }
 
 
     private void visitVarSection(AST node) {
+        System.out.println("DEBUG: Entrando em visitVarSection()");
         if (currentFunction == null) {
             // Variáveis globais
             mipsCode.append("# Variáveis globais\n");
@@ -578,9 +615,11 @@ public class CodegenVisitor {
                 mipsCode.append("subu $sp, $sp, " + currentFunction.localVarSize + "\n");
             }
         }
+        System.out.println("DEBUG: Saindo de visitVarSection()");
     }
 
     private void visitLocalVarDeclaration(AST node) {
+        System.out.println("DEBUG: Entrando em visitLocalVarDeclaration() para: " + node.stringData);
         String varName = node.stringData;
         
         // CORREÇÃO: Verifica se já é um parâmetro para não duplicar
@@ -590,6 +629,7 @@ public class CodegenVisitor {
                 for (ParameterInfo param : funcInfo.parameters) {
                     if (param.name.equals(varName)) {
                         // É um parâmetro, não uma variável local - não processa novamente
+                        System.out.println("DEBUG: " + varName + " é um parâmetro, ignorando.");
                         return;
                     }
                 }
@@ -618,11 +658,14 @@ public class CodegenVisitor {
                 }
             }
         }
+        System.out.println("DEBUG: Saindo de visitLocalVarDeclaration()");
     }
 
     private void visitVarDeclaration(AST node) {
+        System.out.println("DEBUG: Entrando em visitVarDeclaration() para: " + node.stringData);
         if (currentFunction != null) {
             visitLocalVarDeclaration(node);
+            System.out.println("DEBUG: Saindo de visitVarDeclaration() (variável local)");
             return;
         }
         
@@ -637,9 +680,11 @@ public class CodegenVisitor {
             // Declaração de variável simples
             insertVariableDeclaration(label, node.type);
         }
+        System.out.println("DEBUG: Saindo de visitVarDeclaration() (variável global)");
     }
     
     private void visitArrayDeclaration(AST varDeclNode) {
+        System.out.println("DEBUG: Entrando em visitArrayDeclaration() para: " + varDeclNode.stringData);
         String varName = varDeclNode.stringData;
         String label = varLabels.get(varName);
         AST arrayTypeNode = varDeclNode.getChild(0);
@@ -669,9 +714,11 @@ public class CodegenVisitor {
             // Insere declaração do array na seção .data
             insertArrayDeclaration(label, size, elementType);
         }
+        System.out.println("DEBUG: Saindo de visitArrayDeclaration()");
     }
     
     private void insertVariableDeclaration(String label, Type type) {
+        System.out.println("DEBUG: Entrando em insertVariableDeclaration()");
         // Insere declaração na seção .data (será movida para o local correto)
         String currentText = mipsCode.toString();
         int dataEnd = currentText.indexOf(".text");
@@ -691,9 +738,11 @@ public class CodegenVisitor {
             
             mipsCode.append(textPart);
         }
+        System.out.println("DEBUG: Saindo de insertVariableDeclaration()");
     }
     
     private void insertArrayDeclaration(String label, int size, Type elementType) {
+        System.out.println("DEBUG: Entrando em insertArrayDeclaration()");
         // Insere declaração do array na seção .data
         String currentText = mipsCode.toString();
         int dataEnd = currentText.indexOf(".text");
@@ -723,32 +772,43 @@ public class CodegenVisitor {
             
             mipsCode.append(textPart);
         }
+        System.out.println("DEBUG: Saindo de insertArrayDeclaration()");
     }
     
     private void visitArrayType(AST node) {
+        System.out.println("DEBUG: Entrando em visitArrayType()");
         // Processa o tipo array - os filhos já são visitados pelo visitNode
         for (int i = 0; i < node.getChildCount(); i++) {
             visitNode(node.getChild(i));
         }
+        System.out.println("DEBUG: Saindo de visitArrayType()");
     }
     
     private void visitRange(AST node) {
+        System.out.println("DEBUG: Entrando em visitRange()");
         // Processa o range do array - os valores são acessados diretamente
         // nos métodos que precisam deles
         for (int i = 0; i < node.getChildCount(); i++) {
             visitNode(node.getChild(i));
         }
+        System.out.println("DEBUG: Saindo de visitRange()");
     }
 
     private void visitCompoundStatement(AST node) {
+        System.out.println("DEBUG: Entrando em visitCompoundStatement()");
         // Visita o conteúdo do statement composto
         if (node.getChildCount() > 0) {
             visitNode(node.getChild(0));
         }
+        System.out.println("DEBUG: Saindo de visitCompoundStatement()");
     }
 
     private void visitAssignment(AST node) {
-        if (node.getChildCount() != 2) return;
+        System.out.println("DEBUG: Entrando em visitAssignment()");
+        if (node.getChildCount() != 2) {
+            System.out.println("DEBUG: Falha em visitAssignment(), número de filhos incorreto.");
+            return;
+        }
         
         AST varNode = node.getChild(0);
         AST exprNode = node.getChild(1);
@@ -765,6 +825,7 @@ public class CodegenVisitor {
             } else {
                 emitPopTemp("$v0"); // Valor de retorno em $v0 para integers
             }
+            System.out.println("DEBUG: Saindo de visitAssignment() (valor de retorno da função)");
             return;
         }
         
@@ -814,9 +875,11 @@ public class CodegenVisitor {
                 }
             }
         }
+        System.out.println("DEBUG: Saindo de visitAssignment()");
     }
 
     private void visitArrayAssignment(AST arrayNode, String valueReg) {
+        System.out.println("DEBUG: Entrando em visitArrayAssignment() para: " + arrayNode.stringData);
         String arrayName = arrayNode.stringData;
         AST indexNode = arrayNode.getChild(0);
         
@@ -838,9 +901,11 @@ public class CodegenVisitor {
             mipsCode.append("add $t2, $t2, $t1\n");
             mipsCode.append("sw " + valueReg + ", 0($t2)\n");
         }
+        System.out.println("DEBUG: Saindo de visitArrayAssignment()");
     }
 
     private void visitArrayAssignmentFloat(AST arrayNode, String valueReg) {
+        System.out.println("DEBUG: Entrando em visitArrayAssignmentFloat() para: " + arrayNode.stringData);
         String arrayName = arrayNode.stringData;
         AST indexNode = arrayNode.getChild(0);
         
@@ -862,9 +927,11 @@ public class CodegenVisitor {
             mipsCode.append("add $t2, $t2, $t1\n");
             mipsCode.append("swc1 " + valueReg + ", 0($t2)\n");
         }
+        System.out.println("DEBUG: Saindo de visitArrayAssignmentFloat()");
     }
 
     private void visitProcedureCall(AST node) {
+        System.out.println("DEBUG: Entrando em visitProcedureCall() para: " + node.stringData);
         String procName = node.stringData;
         
         // Verifica se é procedimento built-in
@@ -920,9 +987,11 @@ public class CodegenVisitor {
                 }
             }
         }
+        System.out.println("DEBUG: Saindo de visitProcedureCall()");
     }
 
     private void visitBuiltinWrite(AST node) {
+        System.out.println("DEBUG: Entrando em visitBuiltinWrite()");
         String procName = node.stringData;
         
         // Processa argumentos
@@ -956,9 +1025,11 @@ public class CodegenVisitor {
             mipsCode.append("li $v0, 4\n");
             mipsCode.append("syscall\n");
         }
+        System.out.println("DEBUG: Saindo de visitBuiltinWrite()");
     }
 
     private void visitBuiltinRead(AST node) {
+        System.out.println("DEBUG: Entrando em visitBuiltinRead()");
         String procName = node.stringData;
         
         // Processa argumentos (variáveis para ler)
@@ -975,9 +1046,11 @@ public class CodegenVisitor {
                 }
             }
         }
+        System.out.println("DEBUG: Saindo de visitBuiltinRead()");
     }
 
     private void readIntoVariable(AST varNode) {
+        System.out.println("DEBUG: Entrando em readIntoVariable() para: " + varNode.stringData);
         String varName = varNode.stringData;
         
         // Verifica se é variável local ou global
@@ -1015,9 +1088,11 @@ public class CodegenVisitor {
                 }
             }
         }
+        System.out.println("DEBUG: Saindo de readIntoVariable()");
     }
 
     private void readIntoArrayElement(AST arrayNode) {
+        System.out.println("DEBUG: Entrando em readIntoArrayElement() para: " + arrayNode.stringData);
         String arrayName = arrayNode.stringData;
         AST indexNode = arrayNode.getChild(0);
         
@@ -1053,9 +1128,11 @@ public class CodegenVisitor {
                 mipsCode.append("sw $v0, 0($t2)\n");  // armazena no elemento do array
             }
         }
+        System.out.println("DEBUG: Saindo de readIntoArrayElement()");
     }
     
     private void visitIfStatement(AST node) {
+        System.out.println("DEBUG: Entrando em visitIfStatement()");
         if (node.getChildCount() < 2) return;
         
         String elseLabel = generateLabel("else");
@@ -1081,9 +1158,11 @@ public class CodegenVisitor {
         }
         
         mipsCode.append(endLabel + ":\n");
+        System.out.println("DEBUG: Saindo de visitIfStatement()");
     }
 
     private void visitWhileStatement(AST node) {
+        System.out.println("DEBUG: Entrando em visitWhileStatement()");
         if (node.getChildCount() < 2) return;
         
         String loopLabel = generateLabel("loop");
@@ -1104,14 +1183,17 @@ public class CodegenVisitor {
         // Volta para o início
         mipsCode.append("j " + loopLabel + "\n");
         mipsCode.append(endLabel + ":\n");
+        System.out.println("DEBUG: Saindo de visitWhileStatement()");
     }
 
     private void visitBinaryOp(AST node, String operation) {
+        System.out.println("DEBUG: Entrando em visitBinaryOp() para: " + operation);
         if (node.getChildCount() != 2) return;
         
         // Verifica se é operação com floats
         if (node.type == Type.REAL) {
             visitFloatBinaryOp(node, operation);
+            System.out.println("DEBUG: Saindo de visitBinaryOp() (float)");
             return;
         }
         
@@ -1128,9 +1210,11 @@ public class CodegenVisitor {
         
         // Empilha resultado
         emitPushTemp("$t0");
+        System.out.println("DEBUG: Saindo de visitBinaryOp() (integer)");
     }
 
     private void visitFloatBinaryOp(AST node, String operation) {
+        System.out.println("DEBUG: Entrando em visitFloatBinaryOp() para: " + operation);
         if (node.getChildCount() != 2) return;
         
         // Avalia operandos
@@ -1153,9 +1237,11 @@ public class CodegenVisitor {
         
         // Empilha resultado
         emitPushFloat("$f0");
+        System.out.println("DEBUG: Saindo de visitFloatBinaryOp()");
     }
 
     private void visitRealDivision(AST node) {
+        System.out.println("DEBUG: Entrando em visitRealDivision()");
         if (node.getChildCount() != 2) return;
         
         visitNode(node.getChild(0));
@@ -1167,9 +1253,11 @@ public class CodegenVisitor {
         mipsCode.append("div.s $f0, $f0, $f1\n");
         
         emitPushFloat("$f0");
+        System.out.println("DEBUG: Saindo de visitRealDivision()");
     }
 
     private void visitIntegerDivision(AST node) {
+        System.out.println("DEBUG: Entrando em visitIntegerDivision()");
         if (node.getChildCount() != 2) return;
         
         visitNode(node.getChild(0));
@@ -1182,9 +1270,11 @@ public class CodegenVisitor {
         mipsCode.append("mflo $t0\n");
         
         emitPushTemp("$t0");
+        System.out.println("DEBUG: Saindo de visitIntegerDivision()");
     }
 
     private void visitModulo(AST node) {
+        System.out.println("DEBUG: Entrando em visitModulo()");
         if (node.getChildCount() != 2) return;
         
         visitNode(node.getChild(0));
@@ -1197,9 +1287,11 @@ public class CodegenVisitor {
         mipsCode.append("mfhi $t0\n"); // resto da divisão
         
         emitPushTemp("$t0");
+        System.out.println("DEBUG: Saindo de visitModulo()");
     }
 
     private void visitLogicalAnd(AST node) {
+        System.out.println("DEBUG: Entrando em visitLogicalAnd()");
         if (node.getChildCount() != 2) return;
         
         visitNode(node.getChild(0));
@@ -1211,9 +1303,11 @@ public class CodegenVisitor {
         mipsCode.append("and $t0, $t0, $t1\n");
         
         emitPushTemp("$t0");
+        System.out.println("DEBUG: Saindo de visitLogicalAnd()");
     }
 
     private void visitLogicalOr(AST node) {
+        System.out.println("DEBUG: Entrando em visitLogicalOr()");
         if (node.getChildCount() != 2) return;
         
         visitNode(node.getChild(0));
@@ -1225,9 +1319,11 @@ public class CodegenVisitor {
         mipsCode.append("or $t0, $t0, $t1\n");
         
         emitPushTemp("$t0");
+        System.out.println("DEBUG: Saindo de visitLogicalOr()");
     }
 
     private void visitLogicalNot(AST node) {
+        System.out.println("DEBUG: Entrando em visitLogicalNot()");
         if (node.getChildCount() != 1) return;
         
         visitNode(node.getChild(0));
@@ -1236,9 +1332,11 @@ public class CodegenVisitor {
         mipsCode.append("seq $t0, $t0, $zero\n"); // set equal to zero
         
         emitPushTemp("$t0");
+        System.out.println("DEBUG: Saindo de visitLogicalNot()");
     }
 
     private void visitComparison(AST node, String operation) {
+        System.out.println("DEBUG: Entrando em visitComparison() para: " + operation);
         if (node.getChildCount() != 2) return;
         
         // Verifica se é comparação de floats
@@ -1247,6 +1345,7 @@ public class CodegenVisitor {
         
         if (left.type == Type.REAL || right.type == Type.REAL) {
             visitFloatComparison(node, operation);
+            System.out.println("DEBUG: Saindo de visitComparison() (float)");
             return;
         }
         
@@ -1269,9 +1368,11 @@ public class CodegenVisitor {
         mipsCode.append(instruction + " $t0, $t0, $t1\n");
         
         emitPushTemp("$t0");
+        System.out.println("DEBUG: Saindo de visitComparison() (integer)");
     }
 
     private void visitFloatComparison(AST node, String operation) {
+        System.out.println("DEBUG: Entrando em visitFloatComparison() para: " + operation);
         if (node.getChildCount() != 2) return;
         
         visitNode(node.getChild(0));
@@ -1316,14 +1417,18 @@ public class CodegenVisitor {
         
         mipsCode.append(endLabel + ":\n");
         emitPushTemp("$t0");
+        System.out.println("DEBUG: Saindo de visitFloatComparison()");
     }
 
     private void visitIntValue(AST node) {
+        System.out.println("DEBUG: Entrando em visitIntValue() para: " + node.intData);
         mipsCode.append("li $t0, " + node.intData + "\n");
         emitPushTemp("$t0");
+        System.out.println("DEBUG: Saindo de visitIntValue()");
     }
 
     private void visitRealValue(AST node) {
+        System.out.println("DEBUG: Entrando em visitRealValue() para: " + node.floatData);
         // Para valores reais, criamos uma constante float na seção .data
         String floatLabel = generateLabel("float_const");
         
@@ -1343,14 +1448,18 @@ public class CodegenVisitor {
         // Carrega o valor float
         mipsCode.append("lwc1 $f0, " + floatLabel + "\n");
         emitPushFloat("$f0");
+        System.out.println("DEBUG: Saindo de visitRealValue()");
     }
 
     private void visitBoolValue(AST node) {
+        System.out.println("DEBUG: Entrando em visitBoolValue() para: " + node.intData);
         mipsCode.append("li $t0, " + node.intData + "\n");
         emitPushTemp("$t0");
+        System.out.println("DEBUG: Saindo de visitBoolValue()");
     }
 
     private void visitCharValue(AST node) {
+        System.out.println("DEBUG: Entrando em visitCharValue() para: " + node.stringData);
         // Converte char para seu valor ASCII
         if (node.stringData != null && !node.stringData.isEmpty()) {
             char c = node.stringData.charAt(1); // Remove aspas
@@ -1359,9 +1468,11 @@ public class CodegenVisitor {
             mipsCode.append("li $t0, 0\n");
         }
         emitPushTemp("$t0");
+        System.out.println("DEBUG: Saindo de visitCharValue()");
     }
 
     private void visitStringValue(AST node) {
+        System.out.println("DEBUG: Entrando em visitStringValue() para: " + node.stringData);
         // Encontra o índice da string na tabela
         if (strTable != null && node.stringData != null) {
             int index = strTable.indexOf(node.stringData);
@@ -1370,9 +1481,11 @@ public class CodegenVisitor {
                 emitPushTemp("$t0");
             }
         }
+        System.out.println("DEBUG: Saindo de visitStringValue()");
     }
 
     private void visitVariableUse(AST node) {
+        System.out.println("DEBUG: Entrando em visitVariableUse() para: " + node.stringData);
         String varName = node.stringData;
         
         // Primeiro verifica se estamos dentro de uma função/procedimento
@@ -1403,6 +1516,7 @@ public class CodegenVisitor {
                                 emitPushTemp("$t0");
                             }
                         }
+                        System.out.println("DEBUG: Variável " + varName + " é um parâmetro. Saindo.");
                         return; // Encontrou o parâmetro, termina aqui
                     }
                 }
@@ -1422,6 +1536,7 @@ public class CodegenVisitor {
                         mipsCode.append("lw $t0, " + offset + "($fp)\n");
                         emitPushTemp("$t0");
                     }
+                    System.out.println("DEBUG: Variável " + varName + " é local. Saindo.");
                     return;
                 }
             }
@@ -1461,9 +1576,11 @@ public class CodegenVisitor {
                 emitPushTemp("$t0");
             }
         }
+        System.out.println("DEBUG: Saindo de visitVariableUse()");
     }
 
     private void visitArrayAccess(AST node) {
+        System.out.println("DEBUG: Entrando em visitArrayAccess() para: " + node.stringData);
         String arrayName = node.stringData;
         AST indexNode = node.getChild(0);
         
@@ -1492,9 +1609,11 @@ public class CodegenVisitor {
                 emitPushTemp("$t0");
             }
         }
+        System.out.println("DEBUG: Saindo de visitArrayAccess()");
     }
 
     private void visitIntegerToReal(AST node) {
+        System.out.println("DEBUG: Entrando em visitIntegerToReal()");
         if (node.getChildCount() != 1) return;
         
         // Avalia o valor inteiro
@@ -1506,9 +1625,11 @@ public class CodegenVisitor {
         mipsCode.append("cvt.s.w $f0, $f0\n"); // converte word para single
         
         emitPushFloat("$f0");
+        System.out.println("DEBUG: Saindo de visitIntegerToReal()");
     }
 
     private void emitArgumentByReference(AST argNode) {
+        System.out.println("DEBUG: Entrando em emitArgumentByReference()");
         if (argNode.kind == NodeKind.VAR_USE_NODE) {
             String varName = argNode.stringData;
             
@@ -1552,9 +1673,11 @@ public class CodegenVisitor {
                 emitPushTemp("$t0");
             }
         }
+        System.out.println("DEBUG: Saindo de emitArgumentByReference()");
     }
 
     private void storeIntoVariable(AST varNode, String sourceReg, boolean isFloat) {
+        System.out.println("DEBUG: Entrando em storeIntoVariable() para: " + varNode.stringData);
         String varName = varNode.stringData;
         
         // Verifica se é parâmetro por referência
@@ -1571,6 +1694,7 @@ public class CodegenVisitor {
                         } else {
                             mipsCode.append("sw " + sourceReg + ", 0($t2)\n");
                         }
+                        System.out.println("DEBUG: Variável " + varName + " é um parâmetro por referência. Saindo.");
                         return;
                     } else if (param.name.equals(varName)) {
                         // Parâmetro por valor - armazena diretamente no stack frame
@@ -1579,6 +1703,7 @@ public class CodegenVisitor {
                         } else {
                             mipsCode.append("sw " + sourceReg + ", " + param.offset + "($fp)\n");
                         }
+                        System.out.println("DEBUG: Variável " + varName + " é um parâmetro por valor. Saindo.");
                         return;
                     }
                 }
@@ -1592,6 +1717,7 @@ public class CodegenVisitor {
                 } else {
                     mipsCode.append("sw " + sourceReg + ", " + offset + "($fp)\n");
                 }
+                System.out.println("DEBUG: Variável " + varName + " é local. Saindo.");
                 return;
             }
         }
@@ -1605,5 +1731,6 @@ public class CodegenVisitor {
                 mipsCode.append("sw " + sourceReg + ", " + label + "\n");
             }
         }
+        System.out.println("DEBUG: Saindo de storeIntoVariable()");
     }
 }
