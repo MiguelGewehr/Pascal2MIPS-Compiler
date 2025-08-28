@@ -310,9 +310,6 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Saindo de visitProgram()");
     }
 
-    // =================================================================================
-    // *** MÉTODO visitBlock() CORRIGIDO ***
-    // =================================================================================
     private void visitBlock(AST node) {
         System.out.println("DEBUG: Entrando em visitBlock()");
         
@@ -1527,6 +1524,27 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Entrando em visitVariableUse() para: " + node.stringData);
         String varName = node.stringData;
         
+        // *** CORREÇÃO PARA CHAMADA DE FUNÇÃO SEM PARÂMETROS ***
+        // Antes de tratar como variável, verifica se é uma função.
+        if (functionInfo.containsKey(varName)) {
+            FunctionInfo funcInfo = functionInfo.get(varName);
+            if (funcInfo.isFunction) {
+                // É uma chamada de função sem parâmetros, tratada como "uso de variável" pelo parser.
+                System.out.println("DEBUG: " + varName + " é uma chamada de função, não um uso de variável.");
+                mipsCode.append("jal " + funcInfo.label + "\n"); // Chama a função
+                
+                // O valor de retorno da função está em $v0 (int) ou $f0 (real).
+                // Empilhamos esse valor para que a operação de atribuição possa usá-lo.
+                if (funcInfo.returnType == Type.REAL) {
+                    emitPushFloat("$f0");
+                } else {
+                    emitPushTemp("$v0");
+                }
+                System.out.println("DEBUG: Saindo de visitVariableUse() (chamada de função)");
+                return; // Impede a execução do resto do código do método.
+            }
+        }
+
         // Primeiro verifica se estamos dentro de uma função/procedimento
         if (currentFunction != null) {
             // CORREÇÃO: Verifica primeiro se é um parâmetro usando a lista de parâmetros
