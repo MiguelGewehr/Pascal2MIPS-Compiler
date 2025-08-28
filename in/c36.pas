@@ -2,6 +2,8 @@ program RecursaoMinima;
 
 function simples(n: integer): integer;
 begin
+    writeln('Entrando na função com n = ', n);  
+    
     if n = 0 then
         simples := 0
     else
