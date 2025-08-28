@@ -37,7 +37,6 @@ public class CodegenVisitor {
     private Map<String, FunctionInfo> functionInfo = new HashMap<>();
     private FunctionContext currentFunction = null;
 
-    // *** NOVA VARIÁVEL DE CONTROLE ***
     // Ajuda a identificar o bloco principal do programa para tratamento especial.
     private boolean isTopLevelBlock = false;
     
@@ -121,7 +120,6 @@ public class CodegenVisitor {
         stackOffset = 0;
         currentFunction = null;
         
-        // *** ALTERAÇÃO AQUI ***
         // Define que estamos prestes a processar o bloco de mais alto nível.
         this.isTopLevelBlock = true;
 
@@ -154,7 +152,6 @@ public class CodegenVisitor {
         return "\"" + content + "\"";
     }
 
-    // Versão melhorada do emitHeader usando o método auxiliar
     private void emitHeader() {
         System.out.println("DEBUG: Entrando em emitHeader()");
         mipsCode.append(".data\n");
@@ -259,7 +256,7 @@ public class CodegenVisitor {
             case PLUS_NODE -> visitBinaryOp(node, "add");
             case MINUS_NODE -> visitBinaryOp(node, "sub");
             case TIMES_NODE -> visitBinaryOp(node, "mul");
-            case DIVIDE_NODE -> visitRealDivision(node);  // Nova operação para divisão real
+            case DIVIDE_NODE -> visitRealDivision(node);  
             case DIV_NODE -> visitIntegerDivision(node);
             case MOD_NODE -> visitModulo(node);
             
@@ -278,7 +275,7 @@ public class CodegenVisitor {
             
             // Valores
             case INT_VAL_NODE -> visitIntValue(node);
-            case REAL_VAL_NODE -> visitRealValue(node);  // Novo caso para valores reais
+            case REAL_VAL_NODE -> visitRealValue(node);  
             case BOOL_VAL_NODE -> visitBoolValue(node);
             case CHAR_VAL_NODE -> visitCharValue(node);
             case STR_VAL_NODE -> visitStringValue(node);
@@ -288,7 +285,7 @@ public class CodegenVisitor {
             case ARRAY_ACCESS_NODE -> visitArrayAccess(node);
             
             // Conversões de tipo
-            case I2R_NODE -> visitIntegerToReal(node);  // Nova conversão
+            case I2R_NODE -> visitIntegerToReal(node);  
             
             default -> {
                 // Para nós não implementados, visita os filhos
@@ -378,7 +375,7 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Saindo de visitConstSection()");
     }
 
-    // IMPLEMENTAÇÃO: Declaração de função
+    // Declaração de função
     private void visitFunctionDeclaration(AST node) {
         System.out.println("DEBUG: Entrando em visitFunctionDeclaration() para: " + node.stringData);
         String funcName = node.stringData;
@@ -433,7 +430,7 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Saindo de visitFunctionDeclaration() para: " + node.stringData);
     }
 
-    // IMPLEMENTAÇÃO: Declaração de procedimento
+    // Declaração de procedimento
     private void visitProcedureDeclaration(AST node) {
         System.out.println("DEBUG: Entrando em visitProcedureDeclaration() para: " + node.stringData);
         String procName = node.stringData;
@@ -543,7 +540,7 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Saindo de processParameterList()");
         return parameters;
     }
-    // IMPLEMENTAÇÃO: Prólogo da função
+    // Prólogo da função
     private void emitFunctionProlog(List<ParameterInfo> parameters) {
         System.out.println("DEBUG: Entrando em emitFunctionProlog()");
         // Salva registradores
@@ -557,7 +554,7 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Saindo de emitFunctionProlog()");
     }
 
-    // IMPLEMENTAÇÃO: Epílogo da função
+    // Epílogo da função
     private void emitFunctionEpilog() {
         System.out.println("DEBUG: Entrando em emitFunctionEpilog()");
         // Se há variáveis locais alocadas, libera o espaço
@@ -623,7 +620,7 @@ public class CodegenVisitor {
                 mipsCode.append("addu $sp, $sp, " + argsSize + "\n");
             }
             
-            // CORREÇÃO: Se for função, empilha o resultado
+            // Se for função, empilha o resultado
             if (funcInfo.isFunction && funcInfo.returnType != null) {
                 if (funcInfo.returnType == Type.REAL) {
                     emitPushFloat("$f0");
@@ -662,7 +659,7 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Entrando em visitLocalVarDeclaration() para: " + node.stringData);
         String varName = node.stringData;
         
-        // CORREÇÃO: Verifica se já é um parâmetro para não duplicar
+        // Verifica se já é um parâmetro para não duplicar
         if (currentFunction != null) {
             FunctionInfo funcInfo = functionInfo.get(currentFunction.name);
             if (funcInfo != null) {
@@ -869,7 +866,7 @@ public class CodegenVisitor {
             return;
         }
         
-        // CORREÇÃO: Verifica se a expressão é uma chamada de função
+        // Verifica se a expressão é uma chamada de função
         if (exprNode.kind == NodeKind.FUNC_CALL_NODE) {
             // É uma chamada de função - processa normalmente
             visitFunctionCall(exprNode);
@@ -1530,7 +1527,6 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Entrando em visitVariableUse() para: " + node.stringData);
         String varName = node.stringData;
         
-        // *** CORREÇÃO PARA CHAMADA DE FUNÇÃO SEM PARÂMETROS ***
         // Antes de tratar como variável, verifica se é uma função.
         if (functionInfo.containsKey(varName)) {
             FunctionInfo funcInfo = functionInfo.get(varName);
@@ -1553,7 +1549,7 @@ public class CodegenVisitor {
 
         // Primeiro verifica se estamos dentro de uma função/procedimento
         if (currentFunction != null) {
-            // CORREÇÃO: Verifica primeiro se é um parâmetro usando a lista de parâmetros
+            // Verifica primeiro se é um parâmetro usando a lista de parâmetros
             FunctionInfo funcInfo = functionInfo.get(currentFunction.name);
             if (funcInfo != null) {
                 for (ParameterInfo param : funcInfo.parameters) {
@@ -1590,7 +1586,7 @@ public class CodegenVisitor {
             if (currentFunction.localVarOffsets.containsKey(varName)) {
                 int offset = currentFunction.localVarOffsets.get(varName);
                 
-                // CORREÇÃO: Só usar este path se o offset for negativo (variável local)
+                // Só usar este path se o offset for negativo (variável local)
                 if (offset < 0) {
                     if (node.type == Type.REAL) {
                         mipsCode.append("lwc1 $f0, " + offset + "($fp)\n");
