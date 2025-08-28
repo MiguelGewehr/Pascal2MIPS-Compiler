@@ -36,6 +36,10 @@ public class CodegenVisitor {
     private Stack<FunctionContext> functionStack = new Stack<>();
     private Map<String, FunctionInfo> functionInfo = new HashMap<>();
     private FunctionContext currentFunction = null;
+
+    // *** NOVA VARIÁVEL DE CONTROLE ***
+    // Ajuda a identificar o bloco principal do programa para tratamento especial.
+    private boolean isTopLevelBlock = false;
     
     // Classe auxiliar para informações de array
     private static class ArrayInfo {
@@ -59,7 +63,7 @@ public class CodegenVisitor {
         public final boolean isFunction; // true para function, false para procedure
         
         public FunctionInfo(String name, Type returnType, List<ParameterInfo> parameters, 
-                           String label, boolean isFunction) {
+                            String label, boolean isFunction) {
             this.name = name;
             this.returnType = returnType;
             this.parameters = parameters;
@@ -117,9 +121,13 @@ public class CodegenVisitor {
         stackOffset = 0;
         currentFunction = null;
         
-        emitHeader();          // Emite cabeçalho MIPS
-        visitNode(program);    // Visita todos os nós da AST
-        emitFooter();          // Emite rodapé MIPS
+        // *** ALTERAÇÃO AQUI ***
+        // Define que estamos prestes a processar o bloco de mais alto nível.
+        this.isTopLevelBlock = true;
+
+        emitHeader();        // Emite cabeçalho MIPS
+        visitNode(program);  // Visita todos os nós da AST
+        emitFooter();        // Emite rodapé MIPS
         
         System.out.println("DEBUG: Saindo de generate()");
         return mipsCode.toString();
@@ -302,41 +310,70 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Saindo de visitProgram()");
     }
 
+    // =================================================================================
+    // *** MÉTODO visitBlock() CORRIGIDO ***
+    // =================================================================================
     private void visitBlock(AST node) {
         System.out.println("DEBUG: Entrando em visitBlock()");
-        // Se estamos no programa principal, processa primeiro as outras seções
-        if (currentFunction == null) {
-            // Processa tudo exceto funções/procedimentos primeiro
+        
+        if (currentFunction == null && isTopLevelBlock) {
+            this.isTopLevelBlock = false; 
+    
+            List<AST> subroutines = new ArrayList<>();
+            AST mainCompoundStmt = null;
+    
+            // --- PASSADA 1: Processar declarações de dados (Consts e Vars) ---
+            // Isso popula o mapa `varLabels` para que as sub-rotinas saibam sobre as variáveis globais.
             for (int i = 0; i < node.getChildCount(); i++) {
                 AST child = node.getChild(i);
-                if (child.kind != NodeKind.FUNC_DECL_NODE && child.kind != NodeKind.PROC_DECL_NODE) {
+                if (child.kind == NodeKind.CONST_SECTION_NODE || child.kind == NodeKind.VAR_SECTION_NODE) {
                     visitNode(child);
+                } else if (child.kind == NodeKind.FUNC_DECL_NODE || child.kind == NodeKind.PROC_DECL_NODE) {
+                    subroutines.add(child);
+                } else if (child.kind == NodeKind.COMPOUND_STMT_NODE) {
+                    mainCompoundStmt = child;
                 }
             }
             
-            // Adiciona salto para o fim antes das funções
+            // --- PASSADA 2: Processar declarações de sub-rotinas ---
+            // Agora que as variáveis globais são conhecidas, podemos processar as sub-rotinas.
+            // O código MIPS delas será armazenado em um buffer para ser inserido depois do código principal.
+            StringBuilder procedureCodeBuffer = new StringBuilder();
+            StringBuilder originalMipsCode = mipsCode;
+            mipsCode = procedureCodeBuffer; // Redireciona a saída de código para o buffer
+    
+            for (AST subroutine : subroutines) {
+                visitNode(subroutine);
+            }
+    
+            mipsCode = originalMipsCode; // Restaura o buffer de saída original
+    
+            // --- PASSADA 3: Processar o corpo principal do programa ---
+            // Agora que `functionInfo` está populado, as chamadas de procedimento funcionarão.
+            if (mainCompoundStmt != null) {
+                visitNode(mainCompoundStmt);
+            }
+    
+            // --- Montagem Final do Código ---
+            // Insere um salto para pular o código das sub-rotinas.
             String endMainLabel = generateLabel("end_main");
             mipsCode.append("j " + endMainLabel + "\n\n");
             
-            // Depois emite as funções/procedimentos
-            for (int i = 0; i < node.getChildCount(); i++) {
-                AST child = node.getChild(i); // CORREÇÃO: Redeclara child neste escopo
-                if (child.kind == NodeKind.FUNC_DECL_NODE || child.kind == NodeKind.PROC_DECL_NODE) {
-                    visitNode(child);
-                }
-            }
+            // Anexa o código das sub-rotinas que estava no buffer.
+            mipsCode.append(procedureCodeBuffer.toString());
             
-            // Label do fim do main
+            // Adiciona o label de destino do salto.
             mipsCode.append(endMainLabel + ":\n");
+    
         } else {
-            // Dentro de função/procedimento - processa normalmente
+            // Se for um bloco dentro de uma função/procedimento, processa os filhos em ordem.
             for (int i = 0; i < node.getChildCount(); i++) {
-                AST child = node.getChild(i); // CORREÇÃO: Redeclara child neste escopo também
-                visitNode(child);
+                visitNode(node.getChild(i));
             }
         }
         System.out.println("DEBUG: Saindo de visitBlock()");
     }
+    
     private void visitConstSection(AST node) {
         System.out.println("DEBUG: Entrando em visitConstSection()");
         // Constantes são processadas durante a análise semântica
@@ -935,9 +972,9 @@ public class CodegenVisitor {
         String procName = node.stringData;
         
         // Verifica se é procedimento built-in
-        if (procName.equals("writeln") || procName.equals("write")) {
+        if (procName.equalsIgnoreCase("writeln") || procName.equalsIgnoreCase("write")) {
             visitBuiltinWrite(node);
-        } else if (procName.equals("read") || procName.equals("readln")) {
+        } else if (procName.equalsIgnoreCase("read") || procName.equalsIgnoreCase("readln")) {
             visitBuiltinRead(node);
         } else {
             // Procedimento definido pelo usuário
@@ -985,6 +1022,8 @@ public class CodegenVisitor {
                 if (argsSize > 0) {
                     mipsCode.append("addu $sp, $sp, " + argsSize + "\n");
                 }
+            } else {
+                 System.out.println("DEBUG: ERRO - Procedimento '" + procName + "' não encontrado em functionInfo.");
             }
         }
         System.out.println("DEBUG: Saindo de visitProcedureCall()");
@@ -1019,7 +1058,7 @@ public class CodegenVisitor {
             }
         }
         
-        if (procName.equals("writeln")) {
+        if (procName.equalsIgnoreCase("writeln")) {
             // Imprime nova linha
             mipsCode.append("la $a0, newline\n");
             mipsCode.append("li $v0, 4\n");
@@ -1058,15 +1097,15 @@ public class CodegenVisitor {
             int offset = currentFunction.localVarOffsets.get(varName);
             
             if (varNode.type == Type.REAL) {
-                mipsCode.append("li $v0, 6\n");      // syscall para ler float
+                mipsCode.append("li $v0, 6\n");     // syscall para ler float
                 mipsCode.append("syscall\n");
                 mipsCode.append("swc1 $f0, " + offset + "($fp)\n");
             } else if (varNode.type == Type.INTEGER) {
-                mipsCode.append("li $v0, 5\n");      // syscall para ler inteiro
+                mipsCode.append("li $v0, 5\n");     // syscall para ler inteiro
                 mipsCode.append("syscall\n");
                 mipsCode.append("sw $v0, " + offset + "($fp)\n");
             } else if (varNode.type == Type.CHAR) {
-                mipsCode.append("li $v0, 12\n");     // syscall para ler caractere
+                mipsCode.append("li $v0, 12\n");    // syscall para ler caractere
                 mipsCode.append("syscall\n");
                 mipsCode.append("sw $v0, " + offset + "($fp)\n");
             }
@@ -1074,15 +1113,15 @@ public class CodegenVisitor {
             String label = varLabels.get(varName);
             if (label != null) {
                 if (varNode.type == Type.REAL) {
-                    mipsCode.append("li $v0, 6\n");      // syscall para ler float
+                    mipsCode.append("li $v0, 6\n");     // syscall para ler float
                     mipsCode.append("syscall\n");
                     mipsCode.append("swc1 $f0, " + label + "\n");
                 } else if (varNode.type == Type.INTEGER) {
-                    mipsCode.append("li $v0, 5\n");      // syscall para ler inteiro
+                    mipsCode.append("li $v0, 5\n");     // syscall para ler inteiro
                     mipsCode.append("syscall\n");
                     mipsCode.append("sw $v0, " + label + "\n");
                 } else if (varNode.type == Type.CHAR) {
-                    mipsCode.append("li $v0, 12\n");     // syscall para ler caractere
+                    mipsCode.append("li $v0, 12\n");    // syscall para ler caractere
                     mipsCode.append("syscall\n");
                     mipsCode.append("sw $v0, " + label + "\n");
                 }
@@ -1115,15 +1154,15 @@ public class CodegenVisitor {
             
             // Lê o valor baseado no tipo do array
             if (arrayNode.type == Type.REAL) {
-                mipsCode.append("li $v0, 6\n");       // syscall para ler float
+                mipsCode.append("li $v0, 6\n");      // syscall para ler float
                 mipsCode.append("syscall\n");
                 mipsCode.append("swc1 $f0, 0($t2)\n"); // armazena no elemento do array
             } else if (arrayNode.type == Type.INTEGER) {
-                mipsCode.append("li $v0, 5\n");       // syscall para ler inteiro
+                mipsCode.append("li $v0, 5\n");      // syscall para ler inteiro
                 mipsCode.append("syscall\n");
                 mipsCode.append("sw $v0, 0($t2)\n");  // armazena no elemento do array
             } else if (arrayNode.type == Type.CHAR) {
-                mipsCode.append("li $v0, 12\n");      // syscall para ler caractere
+                mipsCode.append("li $v0, 12\n");     // syscall para ler caractere
                 mipsCode.append("syscall\n");
                 mipsCode.append("sw $v0, 0($t2)\n");  // armazena no elemento do array
             }
@@ -1621,7 +1660,7 @@ public class CodegenVisitor {
         emitPopTemp("$t0");
         
         // Converte inteiro para float
-        mipsCode.append("mtc1 $t0, $f0\n");    // move para coprocessador
+        mipsCode.append("mtc1 $t0, $f0\n");   // move para coprocessador
         mipsCode.append("cvt.s.w $f0, $f0\n"); // converte word para single
         
         emitPushFloat("$f0");

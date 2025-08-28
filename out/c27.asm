@@ -7,6 +7,7 @@ var_resultado: .word 0
 .text
 .globl main
 main:
+move $fp, $sp
 # Variáveis globais
 li $t0, 10
 subu $sp, $sp, 4
@@ -176,5 +177,8 @@ syscall
 la $a0, newline
 li $v0, 4
 syscall
+j end_main_0
+
+end_main_0:
 li $v0, 10
 syscall

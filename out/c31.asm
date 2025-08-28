@@ -146,9 +146,6 @@ sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
 sw $t0, var_i
-j end_main_2
-
-end_main_2:
 j loop_0
 endloop_1:
 li $t0, 1
@@ -220,11 +217,8 @@ syscall
 la $a0, newline
 li $v0, 4
 syscall
-j end_main_3
+j end_main_2
 
-end_main_3:
-j end_main_4
-
-end_main_4:
+end_main_2:
 li $v0, 10
 syscall

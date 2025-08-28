@@ -87,8 +87,5 @@ endif_3:
 j end_main_4
 
 end_main_4:
-j end_main_5
-
-end_main_5:
 li $v0, 10
 syscall

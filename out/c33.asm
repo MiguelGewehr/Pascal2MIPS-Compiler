@@ -14,6 +14,8 @@ sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
 sw $t0, var_counter
+jal proc_incrementCounter
+jal proc_incrementCounter
 la $t0, str_0
 subu $sp, $sp, 4
 sw $t0, 0($sp)
@@ -32,9 +34,6 @@ la $a0, newline
 li $v0, 4
 syscall
 j end_main_0
-
-end_main_0:
-j end_main_1
 
 
 proc_incrementCounter:
@@ -63,6 +62,6 @@ lw $fp, 0($sp)
 lw $ra, 4($sp)
 addu $sp, $sp, 8
 jr $ra
-end_main_1:
+end_main_0:
 li $v0, 10
 syscall

@@ -129,9 +129,6 @@ sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
 sw $t0, var_i
-j end_main_2
-
-end_main_2:
 j loop_0
 endloop_1:
 la $t0, str_5
@@ -150,7 +147,7 @@ sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
 sw $t0, var_i
-loop_3:
+loop_2:
 lw $t0, var_i
 subu $sp, $sp, 4
 sw $t0, 0($sp)
@@ -166,7 +163,7 @@ subu $sp, $sp, 4
 sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
-beq $t0, $zero, endloop_4
+beq $t0, $zero, endloop_3
 la $t0, str_6
 subu $sp, $sp, 4
 sw $t0, 0($sp)
@@ -223,16 +220,10 @@ sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
 sw $t0, var_i
-j end_main_5
+j loop_2
+endloop_3:
+j end_main_4
 
-end_main_5:
-j loop_3
-endloop_4:
-j end_main_6
-
-end_main_6:
-j end_main_7
-
-end_main_7:
+end_main_4:
 li $v0, 10
 syscall
