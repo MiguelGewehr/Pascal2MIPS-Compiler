@@ -66,7 +66,7 @@ public class Main {
             
             if (mode.equals("-i")) {
                 // === INTERPRETAÇÃO DO CÓDIGO ===
-                Interpreter interpreter = new Interpreter();
+                Interpreter interpreter = new Interpreter(true); // Enable debug mode
                 interpreter.interpret(ast);
                 System.out.println("Program executed successfully!");
             } else {

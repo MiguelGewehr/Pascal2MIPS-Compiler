@@ -29,6 +29,7 @@ public enum NodeKind {
     PROC_CALL_NODE,
     IF_NODE,
     WHILE_NODE,
+    RETURN_NODE,
     EMPTY_STMT_NODE,
     
     // Expressões aritméticas
@@ -92,6 +93,7 @@ public enum NodeKind {
             case PROC_CALL_NODE -> "proc_call";
             case IF_NODE -> "if";
             case WHILE_NODE -> "while";
+            case RETURN_NODE -> "return";
             case EMPTY_STMT_NODE -> "empty";
             case PLUS_NODE -> "+";
             case MINUS_NODE -> "-";

@@ -32,6 +32,12 @@ public class Interpreter {
         // Mapeamento de arrays para seus valores
     private Map<String, Object[]> arrayValues = new HashMap<>();
     
+    // Mapeamento de nomes de funções/procedimentos para suas ASTs
+    private Map<String, AST> subroutines = new HashMap<>();
+    
+    // Stack de contextos de execução
+    private List<FunctionContext> callStack = new ArrayList<>();
+    
     /**
      * Construtor
      */
@@ -102,8 +108,10 @@ public class Interpreter {
                 case VAR_SECTION_NODE -> executeVarSection(child);
                 case COMPOUND_STMT_NODE -> executeCompoundStatement(child);
                 case PROC_DECL_NODE, FUNC_DECL_NODE -> {
-                    // Por enquanto ignora declarações de subrotinas
-                    debugPrint("Skipping subroutine declaration: " + child.stringData);
+                    // Armazena a declaração da subrotina
+                    String name = child.stringData.toLowerCase();
+                    subroutines.put(name, child);
+                    debugPrint("Stored subroutine declaration: " + name);
                 }
                 default -> {
                     debugPrint("Skipping unsupported block child: " + child.kind);
@@ -389,6 +397,19 @@ public class Interpreter {
             case COMPOUND_STMT_NODE -> executeCompoundStatement(stmtNode);
             case IF_NODE -> executeIfStatement(stmtNode);
             case WHILE_NODE -> executeWhileStatement(stmtNode);
+            case RETURN_NODE -> {
+                if (callStack.isEmpty()) {
+                    throw new RuntimeException("Return statement outside of function");
+                }
+
+                FunctionContext currentContext = callStack.get(callStack.size() - 1);
+                
+                // Se houver uma expressão de retorno, avalia e armazena
+                if (stmtNode.getChildCount() > 0) {
+                    Object returnValue = evaluateExpression(stmtNode.getChild(0));
+                    currentContext.setReturnValue(returnValue);
+                }
+            }
             case EMPTY_STMT_NODE -> {
                 // Não faz nada para statement vazio
             }
@@ -460,7 +481,7 @@ public class Interpreter {
         switch (varNode.kind) {
             case VAR_USE_NODE -> {
                 String varName = varNode.stringData;
-                memory.put(varName, value);
+                setVariableValue(varName, value);
                 debugPrint("Assignment: " + varName + " := " + value);
             }
             case ARRAY_ACCESS_NODE -> {
@@ -523,15 +544,12 @@ public class Interpreter {
                         }
                     }
                 }
-                // Não imprime nova linha
             }
             case "readln" -> {
                 if (DEBUG_MODE) {
                     System.out.print("[INPUT] Enter value: ");
                 }
                 String input = scanner.nextLine();
-                // Para simplificar, assume que está lendo uma variável específica
-                // Implementação completa precisaria de mais informações do contexto
                 debugPrint("Read value: " + input);
             }
             case "read" -> {
@@ -542,11 +560,109 @@ public class Interpreter {
                 debugPrint("Read value: " + input);
             }
             default -> {
-                debugPrint("Skipping user-defined procedure call: " + procName);
+                // Procura a declaração do procedimento
+                AST procDecl = subroutines.get(procName);
+                if (procDecl == null) {
+                    throw new RuntimeException("Procedure '" + procName + "' not found");
+                }
+
+                debugPrint("Executing procedure: " + procName);
+                
+                // Cria um novo contexto para a execução
+                FuncEntry entry = (FuncEntry) entries.get(procName);
+                FunctionContext context = new FunctionContext(procName, procDecl, entry);
+                callStack.add(context);
+
+                try {
+                    // Processa os argumentos se houver
+                    if (procCallNode.getChildCount() > 0 && procDecl.getChildCount() > 0) {
+                        AST paramListNode = null;
+                        // Procura o nó de lista de parâmetros (primeiro filho)
+                        for (int i = 0; i < procDecl.getChildCount(); i++) {
+                            if (procDecl.getChild(i).kind == NodeKind.PARAM_LIST_NODE) {
+                                paramListNode = procDecl.getChild(i);
+                                break;
+                            }
+                        }
+                        if (paramListNode != null) {
+                            processArguments(procCallNode.getChild(0), paramListNode, context);
+                        }
+                    }
+
+                    // Executa o corpo do procedimento (último filho é o compound statement)
+                    AST bodyNode = procDecl.getChild(procDecl.getChildCount() - 1);
+                    if (bodyNode != null) {
+                        if (bodyNode.kind == NodeKind.BLOCK_NODE) {
+                            executeBlock(bodyNode);
+                        } else {
+                            executeStatement(bodyNode);
+                        }
+                    }
+                } finally {
+                    // Remove o contexto da stack ao finalizar
+                    callStack.remove(callStack.size() - 1);
+                }
             }
         }
     }
     
+    /**
+     * Processa os argumentos de uma chamada de função/procedimento
+     */
+    private void processArguments(AST argsNode, AST paramsNode, FunctionContext context) {
+        if (argsNode.getChildCount() != paramsNode.getChildCount()) {
+            throw new RuntimeException("Wrong number of arguments for " + context.getName());
+        }
+
+        for (int i = 0; i < argsNode.getChildCount(); i++) {
+            AST argNode = argsNode.getChild(i);
+            AST paramNode = paramsNode.getChild(i);
+            
+            String paramName = paramNode.stringData.toLowerCase();
+            Object argValue = evaluateExpression(argNode);
+            
+            // Armazena o valor do argumento na memória local do contexto
+            context.getLocalMemory().put(paramName, argValue);
+            debugPrint("Parameter " + paramName + " = " + argValue);
+        }
+    }
+
+    /**
+     * Obtém o valor de uma variável do escopo atual
+     */
+    private Object getVariableValue(String name) {
+        // Primeiro procura no contexto atual (se houver)
+        if (!callStack.isEmpty()) {
+            FunctionContext currentContext = callStack.get(callStack.size() - 1);
+            if (currentContext.getLocalMemory().containsKey(name)) {
+                return currentContext.getLocalMemory().get(name);
+            }
+        }
+        
+        // Se não encontrou no contexto atual, procura na memória global
+        if (!memory.containsKey(name)) {
+            throw new RuntimeException("Variable '" + name + "' not initialized");
+        }
+        return memory.get(name);
+    }
+
+    /**
+     * Define o valor de uma variável no escopo apropriado
+     */
+    private void setVariableValue(String name, Object value) {
+        // Primeiro tenta definir no contexto atual (se houver)
+        if (!callStack.isEmpty()) {
+            FunctionContext currentContext = callStack.get(callStack.size() - 1);
+            if (currentContext.getLocalMemory().containsKey(name)) {
+                currentContext.getLocalMemory().put(name, value);
+                return;
+            }
+        }
+        
+        // Se não encontrou no contexto atual, define na memória global
+        memory.put(name, value);
+    }
+
     /**
      * Formata valor para saída
      */
@@ -660,11 +776,8 @@ public class Interpreter {
             
             // Uso de variável
             case VAR_USE_NODE -> {
-                String varName = exprNode.stringData;
-                if (!memory.containsKey(varName)) {
-                    throw new RuntimeException("Variable '" + varName + "' not initialized");
-                }
-                return memory.get(varName);
+                String varName = exprNode.stringData.toLowerCase();
+                return getVariableValue(varName);
             }
             
             // Acesso a array
