@@ -1,24 +1,24 @@
 program c06;
 var
-  numbers: array[1..6] of integer;
-  i: integer;
+  x, y: integer;
+
+procedure swap(var a, b: integer);
+var
+  temp: integer;
 begin
-  { Teste de declaração e uso de arrays }
-  numbers[1] := 10;
-  numbers[2] := 20;
-  numbers[3] := 30;
-  numbers[4] := 40;
-  numbers[5] := 50;
-  numbers[6] := 60;
+  writeln('Trocando valores: a = ', a, ', b = ', b);
+  temp := a;
+  a := b;
+  b := temp;
+  writeln('Após troca: a = ', a, ', b = ', b);
+end;
+
+begin
+  writeln('=== Teste de Procedimentos ===');
+  x := 10;
+  y := 20;
   
-  { Acesso aos elementos }
-  i := numbers[1] + numbers[2];
-  
-  { Loop com array }
-  i := 1;
-  while i <= 5 do
-  begin
-    numbers[i] := i * 10;
-    i := i + 1
-  end
+  writeln('Valores iniciais: x = ', x, ', y = ', y);
+  swap(x, y);
+  writeln('Valores finais: x = ', x, ', y = ', y);
 end.

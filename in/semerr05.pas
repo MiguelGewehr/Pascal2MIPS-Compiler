@@ -1,4 +1,4 @@
-program test17_type_error_comparison;
+program semerr05;
 var
   x: integer;
   flag: boolean;

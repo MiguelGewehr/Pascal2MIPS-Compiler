@@ -1,4 +1,4 @@
-program test14_redeclaration;
+program semerr02;
 var
   x: integer;
   x: real;    { ERRO: variável x já foi declarada }

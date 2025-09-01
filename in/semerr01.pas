@@ -1,4 +1,4 @@
-program test13_undeclared_variable;
+program semerr01;
 var
   x: integer;
 begin

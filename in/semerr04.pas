@@ -1,4 +1,4 @@
-program test16_type_error_operation;
+program semerr04;
 var
   x: integer;
   flag: boolean;

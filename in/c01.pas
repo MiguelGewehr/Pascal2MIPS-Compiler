@@ -3,20 +3,33 @@ var
   a, b, c: integer;
   x, y: real;
 begin
-  { Teste de operações aritméticas com inteiros }
+  writeln('=== Operações Aritméticas ===');
   a := 10;
   b := 3;
-  c := a + b;        { Soma }
-  c := a - b;        { Subtração }
-  c := a * b;        { Multiplicação }
-  c := a div b;      { Divisão inteira }
-  c := a mod b;      { Módulo }
   
-  { Teste de operações aritméticas com reais }
+  c := a + b;
+  writeln('Soma: ', a, ' + ', b, ' = ', c);
+  
+  c := a - b;
+  writeln('Subtração: ', a, ' - ', b, ' = ', c);
+  
+  c := a * b;
+  writeln('Multiplicação: ', a, ' * ', b, ' = ', c);
+  
+  c := a div b;
+  writeln('Divisão inteira: ', a, ' div ', b, ' = ', c);
+  
+  c := a mod b;
+  writeln('Módulo: ', a, ' mod ', b, ' = ', c);
+  
+  writeln('--- Operações com reais ---');
   x := 10.5;
   y := 3.2;
-  x := x + y;        { Soma de reais }
-  x := x - y;        { Subtração de reais }
-  x := x * y;        { Multiplicação de reais }
-  x := x / y;        { Divisão real }
+  
+  x := x + y;
+  writeln('Soma real: 10.5 + 3.2 = ', x);
+  
+  x := 10.5;
+  x := x / y;
+  writeln('Divisão real: 10.5 / 3.2 = ', x);
 end.

@@ -1,26 +1,30 @@
 program c08;
+const
+  MAX_VALUE = 100;
+  PI = 3.14159;
 var
-  result: integer;
-
-function factorial(n: integer): integer;
+  age: integer;
+  height: real;
+  temp: integer;
 begin
-  { Função recursiva para calcular fatorial }
-  if n <= 1 then
-    factorial := 1
+  writeln('=== Teste de E/S e Constantes ===');
+  writeln('Constantes definidas:');
+  writeln('MAX_VALUE = ', MAX_VALUE);
+  writeln('PI = ', PI);
+  
+  writeln('Digite sua idade: ');
+  readln(age);
+  writeln('Você digitou: ', age, ' anos');
+  
+  writeln('Digite sua altura (em metros): ');
+  readln(height);
+  writeln('Sua altura é: ', height, ' metros');
+  
+  temp := MAX_VALUE;
+  writeln('Valor da constante atribuído a temp: ', temp);
+  
+  if age >= 18 then
+    writeln('Você é maior de idade')
   else
-    factorial := n * factorial(n - 1)
-end;
-
-function max(a, b: integer): integer;
-begin
-  { Função para retornar o maior valor }
-  if a > b then
-    max := a
-  else
-    max := b
-end;
-
-begin
-  result := factorial(5);    { result = 120 }
-  result := max(10, 20);     { result = 20 }
+    writeln('Você é menor de idade');
 end.

@@ -1,15 +1,21 @@
 .data
 newline: .asciiz "\n"
-str_0: .asciiz "Digite seu nome: "
-str_1: .asciiz "Digite sua idade: "
-str_2: .asciiz "Digite sua altura: "
-str_3: .asciiz "Nome: "
-str_4: .asciiz "Idade: "
-str_5: .asciiz "Altura: "
+str_0: .asciiz "=== Teste de Conversões de Tipo ==="
+str_1: .asciiz "intNum = "
+str_2: .asciiz "realNum = "
+str_3: .asciiz "intNum + realNum = "
+str_4: .asciiz " + "
+str_5: .asciiz " = "
+str_6: .asciiz "intNum / realNum = "
+str_7: .asciiz " / "
+str_8: .asciiz "intNum * realNum = "
+str_9: .asciiz " * "
+str_10: .asciiz "Conversão automática: integer -> real funcionando!"
 
-var_name: .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-var_age: .word 0
-var_height: .float 0.0
+var_intNum: .word 0
+var_realNum: .float 0.0
+var_result: .float 0.0
+float_const_0: .float 2.5
 .text
 .globl main
 main:
@@ -22,66 +28,21 @@ lw $a0, 0($sp)
 addu $sp, $sp, 4
 li $v0, 4
 syscall
-li $t0, 74
+la $a0, newline
+li $v0, 4
+syscall
+li $t0, 5
 subu $sp, $sp, 4
 sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
-li $t0, 1
+sw $t0, var_intNum
+lwc1 $f0, float_const_0
 subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
+swc1 $f0, 0($sp)
+lwc1 $f0, 0($sp)
 addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t2, var_name
-add $t2, $t2, $t1
-sw $t0, 0($t2)
-li $t0, 111
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-li $t0, 2
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t2, var_name
-add $t2, $t2, $t1
-sw $t0, 0($t2)
-li $t0, 97
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-li $t0, 3
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t2, var_name
-add $t2, $t2, $t1
-sw $t0, 0($t2)
-li $t0, 111
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-li $t0, 4
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t2, var_name
-add $t2, $t2, $t1
-sw $t0, 0($t2)
+swc1 $f0, var_realNum
 la $t0, str_1
 subu $sp, $sp, 4
 sw $t0, 0($sp)
@@ -89,9 +50,16 @@ lw $a0, 0($sp)
 addu $sp, $sp, 4
 li $v0, 4
 syscall
-li $v0, 5
+lw $t0, var_intNum
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
 syscall
-sw $v0, var_age
+la $a0, newline
+li $v0, 4
+syscall
 la $t0, str_2
 subu $sp, $sp, 4
 sw $t0, 0($sp)
@@ -99,108 +67,7 @@ lw $a0, 0($sp)
 addu $sp, $sp, 4
 li $v0, 4
 syscall
-li $v0, 6
-syscall
-swc1 $f0, var_height
-la $t0, str_3
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $a0, 0($sp)
-addu $sp, $sp, 4
-li $v0, 4
-syscall
-li $t0, 1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t0, var_name
-add $t0, $t0, $t1
-lw $t0, 0($t0)
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $a0, 0($sp)
-addu $sp, $sp, 4
-li $v0, 1
-syscall
-li $t0, 2
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t0, var_name
-add $t0, $t0, $t1
-lw $t0, 0($t0)
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $a0, 0($sp)
-addu $sp, $sp, 4
-li $v0, 1
-syscall
-li $t0, 3
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t0, var_name
-add $t0, $t0, $t1
-lw $t0, 0($t0)
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $a0, 0($sp)
-addu $sp, $sp, 4
-li $v0, 1
-syscall
-li $t0, 4
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t0, var_name
-add $t0, $t0, $t1
-lw $t0, 0($t0)
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $a0, 0($sp)
-addu $sp, $sp, 4
-li $v0, 1
-syscall
-la $a0, newline
-li $v0, 4
-syscall
-la $t0, str_4
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $a0, 0($sp)
-addu $sp, $sp, 4
-li $v0, 4
-syscall
-lw $t0, var_age
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $a0, 0($sp)
-addu $sp, $sp, 4
-li $v0, 1
-syscall
-la $a0, newline
-li $v0, 4
-syscall
-la $t0, str_5
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $a0, 0($sp)
-addu $sp, $sp, 4
-li $v0, 4
-syscall
-lwc1 $f0, var_height
+lwc1 $f0, var_realNum
 subu $sp, $sp, 4
 swc1 $f0, 0($sp)
 lwc1 $f12, 0($sp)
@@ -210,8 +77,219 @@ syscall
 la $a0, newline
 li $v0, 4
 syscall
-j end_main_0
+lw $t0, var_intNum
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t0, 0($sp)
+addu $sp, $sp, 4
+mtc1 $t0, $f0
+cvt.s.w $f0, $f0
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f0, var_realNum
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f1, 0($sp)
+addu $sp, $sp, 4
+lwc1 $f0, 0($sp)
+addu $sp, $sp, 4
+add.s $f0, $f0, $f1
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f0, 0($sp)
+addu $sp, $sp, 4
+swc1 $f0, var_result
+la $t0, str_3
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lw $t0, var_intNum
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $t0, str_4
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lwc1 $f0, var_realNum
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f12, 0($sp)
+addu $sp, $sp, 4
+li $v0, 2
+syscall
+la $t0, str_5
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lwc1 $f0, var_result
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f12, 0($sp)
+addu $sp, $sp, 4
+li $v0, 2
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+lw $t0, var_intNum
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t0, 0($sp)
+addu $sp, $sp, 4
+mtc1 $t0, $f0
+cvt.s.w $f0, $f0
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f0, var_realNum
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f1, 0($sp)
+addu $sp, $sp, 4
+lwc1 $f0, 0($sp)
+addu $sp, $sp, 4
+div.s $f0, $f0, $f1
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f0, 0($sp)
+addu $sp, $sp, 4
+swc1 $f0, var_result
+la $t0, str_6
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lw $t0, var_intNum
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $t0, str_7
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lwc1 $f0, var_realNum
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f12, 0($sp)
+addu $sp, $sp, 4
+li $v0, 2
+syscall
+la $t0, str_5
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lwc1 $f0, var_result
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f12, 0($sp)
+addu $sp, $sp, 4
+li $v0, 2
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+lw $t0, var_intNum
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t0, 0($sp)
+addu $sp, $sp, 4
+mtc1 $t0, $f0
+cvt.s.w $f0, $f0
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f0, var_realNum
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f1, 0($sp)
+addu $sp, $sp, 4
+lwc1 $f0, 0($sp)
+addu $sp, $sp, 4
+mul.s $f0, $f0, $f1
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f0, 0($sp)
+addu $sp, $sp, 4
+swc1 $f0, var_result
+la $t0, str_8
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lw $t0, var_intNum
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $t0, str_9
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lwc1 $f0, var_realNum
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f12, 0($sp)
+addu $sp, $sp, 4
+li $v0, 2
+syscall
+la $t0, str_5
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lwc1 $f0, var_result
+subu $sp, $sp, 4
+swc1 $f0, 0($sp)
+lwc1 $f12, 0($sp)
+addu $sp, $sp, 4
+li $v0, 2
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+la $t0, str_10
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+j end_main_1
 
-end_main_0:
+end_main_1:
 li $v0, 10
 syscall

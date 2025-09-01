@@ -1,4 +1,4 @@
-program test20_function_return_error;
+program semerr08;
 
 function get_number: integer;
 var
@@ -9,5 +9,5 @@ begin
 end;
 
 begin
-  write(get_number)
+  writeln(get_number)
 end.

@@ -1,24 +1,24 @@
 program c09;
 var
-  name: array[1..20] of char;
-  age: integer;
-  height: real;
+  intNum: integer;
+  realNum: real;
+  result: real;
 begin
-  { Teste de operações de E/S }
-  write('Digite seu nome: ');
-  { Simulação de leitura de string }
-  name[1] := 'J';
-  name[2] := 'o';
-  name[3] := 'a';
-  name[4] := 'o';
+  writeln('=== Teste de Conversões de Tipo ===');
+  intNum := 5;
+  realNum := 2.5;
   
-  write('Digite sua idade: ');
-  read(age);
+  writeln('intNum = ', intNum);
+  writeln('realNum = ', realNum);
   
-  write('Digite sua altura: ');
-  read(height);
+  result := intNum + realNum;
+  writeln('intNum + realNum = ', intNum, ' + ', realNum, ' = ', result);
   
-  writeln('Nome: ', name[1], name[2], name[3], name[4]);
-  writeln('Idade: ', age);
-  writeln('Altura: ', height);
+  result := intNum / realNum;
+  writeln('intNum / realNum = ', intNum, ' / ', realNum, ' = ', result);
+  
+  result := intNum * realNum;
+  writeln('intNum * realNum = ', intNum, ' * ', realNum, ' = ', result);
+  
+  writeln('Conversão automática: integer -> real funcionando!');
 end.

@@ -1,30 +1,237 @@
 .data
 newline: .asciiz "\n"
+str_0: .asciiz "=== Teste de Arrays ==="
+str_1: .asciiz "Inicializando array..."
+str_2: .asciiz "numbers[1] = "
+str_3: .asciiz "numbers[2] = "
+str_4: .asciiz "numbers[3] = "
+str_5: .asciiz "Soma numbers[1] + numbers[2] = "
+str_6: .asciiz "--- Preenchendo array com loop ---"
+str_7: .asciiz "numbers["
+str_8: .asciiz "] = "
 
+var_numbers: .word 0, 0, 0, 0, 0
 var_i: .word 0
-var_sum: .word 0
 .text
 .globl main
 main:
 move $fp, $sp
 # Variáveis globais
+la $t0, str_0
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+la $t0, str_1
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+li $t0, 10
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t0, 0($sp)
+addu $sp, $sp, 4
+li $t0, 1
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t1, 0($sp)
+addu $sp, $sp, 4
+addi $t1, $t1, -1
+sll $t1, $t1, 2
+la $t2, var_numbers
+add $t2, $t2, $t1
+sw $t0, 0($t2)
+li $t0, 20
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t0, 0($sp)
+addu $sp, $sp, 4
+li $t0, 2
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t1, 0($sp)
+addu $sp, $sp, 4
+addi $t1, $t1, -1
+sll $t1, $t1, 2
+la $t2, var_numbers
+add $t2, $t2, $t1
+sw $t0, 0($t2)
+li $t0, 30
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t0, 0($sp)
+addu $sp, $sp, 4
+li $t0, 3
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t1, 0($sp)
+addu $sp, $sp, 4
+addi $t1, $t1, -1
+sll $t1, $t1, 2
+la $t2, var_numbers
+add $t2, $t2, $t1
+sw $t0, 0($t2)
+la $t0, str_2
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+li $t0, 1
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t1, 0($sp)
+addu $sp, $sp, 4
+addi $t1, $t1, -1
+sll $t1, $t1, 2
+la $t0, var_numbers
+add $t0, $t0, $t1
+lw $t0, 0($t0)
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+la $t0, str_3
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+li $t0, 2
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t1, 0($sp)
+addu $sp, $sp, 4
+addi $t1, $t1, -1
+sll $t1, $t1, 2
+la $t0, var_numbers
+add $t0, $t0, $t1
+lw $t0, 0($t0)
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+la $t0, str_4
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+li $t0, 3
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t1, 0($sp)
+addu $sp, $sp, 4
+addi $t1, $t1, -1
+sll $t1, $t1, 2
+la $t0, var_numbers
+add $t0, $t0, $t1
+lw $t0, 0($t0)
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+li $t0, 1
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t1, 0($sp)
+addu $sp, $sp, 4
+addi $t1, $t1, -1
+sll $t1, $t1, 2
+la $t0, var_numbers
+add $t0, $t0, $t1
+lw $t0, 0($t0)
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+li $t0, 2
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t1, 0($sp)
+addu $sp, $sp, 4
+addi $t1, $t1, -1
+sll $t1, $t1, 2
+la $t0, var_numbers
+add $t0, $t0, $t1
+lw $t0, 0($t0)
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t1, 0($sp)
+addu $sp, $sp, 4
+lw $t0, 0($sp)
+addu $sp, $sp, 4
+add $t0, $t0, $t1
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t0, 0($sp)
+addu $sp, $sp, 4
+sw $t0, var_i
+la $t0, str_5
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lw $t0, var_i
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+la $t0, str_6
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+la $a0, newline
+li $v0, 4
+syscall
 li $t0, 1
 subu $sp, $sp, 4
 sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
 sw $t0, var_i
-li $t0, 0
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-sw $t0, var_sum
 loop_0:
 lw $t0, var_i
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-li $t0, 10
+li $t0, 3
 subu $sp, $sp, 4
 sw $t0, 0($sp)
 lw $t1, 0($sp)
@@ -37,22 +244,71 @@ sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
 beq $t0, $zero, endloop_1
-lw $t0, var_sum
+lw $t0, var_i
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-lw $t0, var_i
+li $t0, 10
 subu $sp, $sp, 4
 sw $t0, 0($sp)
 lw $t1, 0($sp)
 addu $sp, $sp, 4
 lw $t0, 0($sp)
 addu $sp, $sp, 4
-add $t0, $t0, $t1
+mul $t0, $t0, $t1
 subu $sp, $sp, 4
 sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
-sw $t0, var_sum
+lw $t0, var_i
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t1, 0($sp)
+addu $sp, $sp, 4
+addi $t1, $t1, -1
+sll $t1, $t1, 2
+la $t2, var_numbers
+add $t2, $t2, $t1
+sw $t0, 0($t2)
+la $t0, str_7
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lw $t0, var_i
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $t0, str_8
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lw $t0, var_i
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t1, 0($sp)
+addu $sp, $sp, 4
+addi $t1, $t1, -1
+sll $t1, $t1, 2
+la $t0, var_numbers
+add $t0, $t0, $t1
+lw $t0, 0($t0)
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $a0, newline
+li $v0, 4
+syscall
 lw $t0, var_i
 subu $sp, $sp, 4
 sw $t0, 0($sp)
@@ -71,90 +327,8 @@ addu $sp, $sp, 4
 sw $t0, var_i
 j loop_0
 endloop_1:
-li $t0, 1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-sw $t0, var_i
-loop_2:
-lw $t0, var_i
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-li $t0, 3
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-sle $t0, $t0, $t1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-beq $t0, $zero, endloop_3
-li $t0, 0
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-sw $t0, var_sum
-loop_4:
-lw $t0, var_sum
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-li $t0, 10
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-slt $t0, $t0, $t1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-beq $t0, $zero, endloop_5
-lw $t0, var_sum
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, var_i
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-add $t0, $t0, $t1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-sw $t0, var_sum
-j loop_4
-endloop_5:
-lw $t0, var_i
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-li $t0, 1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-add $t0, $t0, $t1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-sw $t0, var_i
-j loop_2
-endloop_3:
-j end_main_6
+j end_main_2
 
-end_main_6:
+end_main_2:
 li $v0, 10
 syscall

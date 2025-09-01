@@ -1,205 +1,206 @@
 .data
 newline: .asciiz "\n"
+str_0: .asciiz "Trocando valores: a = "
+str_1: .asciiz ", b = "
+str_2: .asciiz "Após troca: a = "
+str_3: .asciiz "=== Teste de Procedimentos ==="
+str_4: .asciiz "Valores iniciais: x = "
+str_5: .asciiz ", y = "
+str_6: .asciiz "Valores finais: x = "
 
-var_numbers: .word 0, 0, 0, 0, 0, 0
-var_i: .word 0
+var_x: .word 0
+var_y: .word 0
 .text
 .globl main
 main:
 move $fp, $sp
 # Variáveis globais
+la $t0, str_3
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+la $a0, newline
+li $v0, 4
+syscall
 li $t0, 10
 subu $sp, $sp, 4
 sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
-li $t0, 1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t2, var_numbers
-add $t2, $t2, $t1
-sw $t0, 0($t2)
+sw $t0, var_x
 li $t0, 20
 subu $sp, $sp, 4
 sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
-li $t0, 2
+sw $t0, var_y
+la $t0, str_4
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-lw $t1, 0($sp)
+lw $a0, 0($sp)
 addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t2, var_numbers
-add $t2, $t2, $t1
-sw $t0, 0($t2)
-li $t0, 30
+li $v0, 4
+syscall
+lw $t0, var_x
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-lw $t0, 0($sp)
+lw $a0, 0($sp)
 addu $sp, $sp, 4
-li $t0, 3
+li $v0, 1
+syscall
+la $t0, str_5
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-lw $t1, 0($sp)
+lw $a0, 0($sp)
 addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t2, var_numbers
-add $t2, $t2, $t1
-sw $t0, 0($t2)
-li $t0, 40
+li $v0, 4
+syscall
+lw $t0, var_y
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-lw $t0, 0($sp)
+lw $a0, 0($sp)
 addu $sp, $sp, 4
-li $t0, 4
+li $v0, 1
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+lw $t0, var_y
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t2, var_numbers
-add $t2, $t2, $t1
-sw $t0, 0($t2)
-li $t0, 50
+lw $t0, var_x
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-li $t0, 5
+jal func_swap
+addu $sp, $sp, 8
+la $t0, str_6
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-lw $t1, 0($sp)
+lw $a0, 0($sp)
 addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t2, var_numbers
-add $t2, $t2, $t1
-sw $t0, 0($t2)
-li $t0, 60
+li $v0, 4
+syscall
+lw $t0, var_x
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-lw $t0, 0($sp)
+lw $a0, 0($sp)
 addu $sp, $sp, 4
-li $t0, 6
+li $v0, 1
+syscall
+la $t0, str_5
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-lw $t1, 0($sp)
+lw $a0, 0($sp)
 addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t2, var_numbers
-add $t2, $t2, $t1
-sw $t0, 0($t2)
-li $t0, 1
+li $v0, 4
+syscall
+lw $t0, var_y
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-lw $t1, 0($sp)
+lw $a0, 0($sp)
 addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t0, var_numbers
-add $t0, $t0, $t1
-lw $t0, 0($t0)
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-li $t0, 2
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t0, var_numbers
-add $t0, $t0, $t1
-lw $t0, 0($t0)
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-add $t0, $t0, $t1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-sw $t0, var_i
-li $t0, 1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-sw $t0, var_i
-loop_0:
-lw $t0, var_i
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-li $t0, 5
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-sle $t0, $t0, $t1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-beq $t0, $zero, endloop_1
-lw $t0, var_i
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-li $t0, 10
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-mul $t0, $t0, $t1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-lw $t0, var_i
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-addi $t1, $t1, -1
-sll $t1, $t1, 2
-la $t2, var_numbers
-add $t2, $t2, $t1
-sw $t0, 0($t2)
-lw $t0, var_i
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-li $t0, 1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t1, 0($sp)
-addu $sp, $sp, 4
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-add $t0, $t0, $t1
-subu $sp, $sp, 4
-sw $t0, 0($sp)
-lw $t0, 0($sp)
-addu $sp, $sp, 4
-sw $t0, var_i
-j loop_0
-endloop_1:
-j end_main_2
+li $v0, 1
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+j end_main_0
 
-end_main_2:
+
+func_swap:
+subu $sp, $sp, 8
+sw $ra, 4($sp)
+sw $fp, 0($sp)
+move $fp, $sp
+subu $sp, $sp, 4
+la $t0, str_0
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lw $t0, 8($fp)
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $t0, str_1
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lw $t0, 12($fp)
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+lw $t0, 8($fp)
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t0, 0($sp)
+addu $sp, $sp, 4
+lw $t0, 12($fp)
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t0, 0($sp)
+addu $sp, $sp, 4
+sw $t0, 8($fp)
+li $t0, 0
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $t0, 0($sp)
+addu $sp, $sp, 4
+sw $t0, 12($fp)
+la $t0, str_2
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lw $t0, 8($fp)
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $t0, str_1
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lw $t0, 12($fp)
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $a0, newline
+li $v0, 4
+syscall
+func_swap_end:
+addu $sp, $sp, 4
+lw $fp, 0($sp)
+lw $ra, 4($sp)
+addu $sp, $sp, 8
+jr $ra
+end_main_0:
 li $v0, 10
 syscall

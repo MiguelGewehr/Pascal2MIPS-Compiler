@@ -1,26 +1,34 @@
 program c07;
 var
-  x, y: integer;
+  result: integer;
 
-procedure swap(var a, b: integer);
-var
-  temp: integer;
+function factorial(n: integer): integer;
 begin
-  { Procedimento para trocar valores }
-  temp := a;
-  a := b;
-  b := temp
+  writeln('Calculando fatorial de ', n);
+  if n <= 1 then
+    factorial := 1
+  else
+    factorial := n * factorial(n - 1)
 end;
 
-procedure increment(var n: integer);
+function max(a, b: integer): integer;
 begin
-  { Procedimento para incrementar }
-  n := n + 1
+  writeln('Comparando ', a, ' e ', b);
+  if a > b then
+    max := a
+  else
+    max := b
 end;
 
 begin
-  x := 10;
-  y := 20;
-  swap(x, y);        { x=20, y=10 }
-  increment(x);      { x=21 }
+  writeln('=== Teste de Funções ===');
+  
+  result := factorial(5);
+  writeln('Fatorial de 5 = ', result);
+  
+  result := max(10, 20);
+  writeln('Máximo entre 10 e 20 = ', result);
+  
+  result := max(30, 15);
+  writeln('Máximo entre 30 e 15 = ', result);
 end.

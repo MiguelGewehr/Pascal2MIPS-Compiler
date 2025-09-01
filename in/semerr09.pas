@@ -1,26 +1,10 @@
-program c08;
-var
-  result: integer;
+program semerr09;
 
-function factorial(n: integer): integer;
+function square(x: integer): integer;
 begin
-  { Função recursiva para calcular fatorial }
-  if n <= 1 then
-    factorial := 1
-  else
-    factorial := n * factorial(n - 1)
-end;
-
-function max(a, b: integer): integer;
-begin
-  { Função para retornar o maior valor }
-  if a > b then
-    max := a
-  else
-    max := b
+  square := x * x
 end;
 
 begin
-  result := factorial('c');    { O tipo do parametro esta errado }
-  result := max(10, 20);     { result = 20 }
+  writeln(square(true));    { ERRO: parâmetro boolean para função que espera integer }
 end.

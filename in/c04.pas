@@ -1,23 +1,32 @@
 program c04;
 var
-  x: integer;
-  positive: boolean;
+  i, sum: integer;
 begin
-  { Teste de estrutura condicional simples }
-  x := 10;
-  if x > 0 then
-    positive := true
-  else
-    positive := false;
-    
-  { Teste de if aninhado }
-  if x > 0 then
+  writeln('=== Laços While ===');
+  writeln('Calculando soma de 1 a 5:');
+  
+  i := 1;
+  sum := 0;
+  while i <= 5 do
   begin
-    if x > 100 then
-      write('Grande')
-    else
-      write('Pequeno positivo')
-  end
-  else
-    write('Negativo ou zero');
+    writeln('i = ', i, ', soma parcial = ', sum);
+    sum := sum + i;
+    i := i + 1
+  end;
+  writeln('Soma final: ', sum);
+  
+  writeln('--- While aninhado ---');
+  i := 1;
+  while i <= 2 do
+  begin
+    writeln('Loop externo i = ', i);
+    sum := 0;
+    while sum < 10 do
+    begin
+      sum := sum + i;
+      writeln('  Loop interno: sum = ', sum);
+    end;
+    i := i + 1
+  end;
+  writeln('Loops concluídos');
 end.

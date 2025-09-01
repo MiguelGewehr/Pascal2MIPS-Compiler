@@ -1,4 +1,4 @@
-program test15_type_error_assignment;
+program semerr03;
 var
   x: integer;
   flag: boolean;

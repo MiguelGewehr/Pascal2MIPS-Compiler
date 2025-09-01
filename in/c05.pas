@@ -1,23 +1,28 @@
 program c05;
 var
-  i, sum: integer;
+  numbers: array[1..5] of integer;
+  i: integer;
 begin
-  { Teste de laço while simples }
-  i := 1;
-  sum := 0;
-  while i <= 10 do
-  begin
-    sum := sum + i;
-    i := i + 1
-  end;
+  writeln('=== Teste de Arrays ===');
+  writeln('Inicializando array...');
   
-  { Teste de while aninhado }
+  numbers[1] := 10;
+  numbers[2] := 20;
+  numbers[3] := 30;
+  
+  writeln('numbers[1] = ', numbers[1]);
+  writeln('numbers[2] = ', numbers[2]);
+  writeln('numbers[3] = ', numbers[3]);
+  
+  i := numbers[1] + numbers[2];
+  writeln('Soma numbers[1] + numbers[2] = ', i);
+  
+  writeln('--- Preenchendo array com loop ---');
   i := 1;
   while i <= 3 do
   begin
-    sum := 0;
-    while sum < 10 do
-      sum := sum + i;
+    numbers[i] := i * 10;
+    writeln('numbers[', i, '] = ', numbers[i]);
     i := i + 1
   end
 end.

@@ -1,4 +1,4 @@
-program test19_array_bounds_error;
+program semerr07;
 var
   arr: array[1..5] of integer;
 begin

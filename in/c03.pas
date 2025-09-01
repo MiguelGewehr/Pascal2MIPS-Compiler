@@ -1,15 +1,25 @@
 program c03;
 var
-  p, q, result: boolean;
+  x, score: integer;
 begin
-  { Teste de operações lógicas }
-  p := true;
-  q := false;
+  writeln('=== Estruturas Condicionais ===');
+  x := 10;
+  writeln('x = ', x);
   
-  result := p and q;  { E lógico }
-  result := p or q;   { OU lógico }
-  result := not p;    { NÃO lógico }
+  if x > 0 then
+    writeln('x é positivo')
+  else
+    writeln('x é negativo ou zero');
+    
+  writeln('--- If aninhado ---');
+  score := 85;
+  writeln('Score = ', score);
   
-  { Expressões compostas }
-  result := (p and q) or (not p);
+  if score >= 90 then
+    writeln('Conceito: Excelente')
+  else
+    if score >= 80 then
+      writeln('Conceito: Bom')
+    else
+      writeln('Conceito: Regular');
 end.
