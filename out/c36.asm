@@ -1,6 +1,7 @@
 .data
 newline: .asciiz "\n"
-str_0: .asciiz "Recursão completa!"
+str_0: .asciiz "Entrando na função com n = "
+str_1: .asciiz "Recursão completa!"
 
 .text
 .globl main
@@ -11,7 +12,7 @@ subu $sp, $sp, 4
 sw $t0, 0($sp)
 jal func_simples
 addu $sp, $sp, 4
-la $t0, str_0
+la $t0, str_1
 subu $sp, $sp, 4
 sw $t0, 0($sp)
 lw $a0, 0($sp)
@@ -29,6 +30,23 @@ subu $sp, $sp, 8
 sw $ra, 4($sp)
 sw $fp, 0($sp)
 move $fp, $sp
+la $t0, str_0
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 4
+syscall
+lw $t0, 8($fp)
+subu $sp, $sp, 4
+sw $t0, 0($sp)
+lw $a0, 0($sp)
+addu $sp, $sp, 4
+li $v0, 1
+syscall
+la $a0, newline
+li $v0, 4
+syscall
 lw $t0, 8($fp)
 subu $sp, $sp, 4
 sw $t0, 0($sp)
@@ -55,17 +73,6 @@ else_0:
 lw $t0, 8($fp)
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-lw $a0, 0($sp)
-addu $sp, $sp, 4
-li $v0, 1
-syscall
-la $a0, newline
-li $v0, 4
-syscall
-endif_1:
-lw $t0, 8($fp)
-subu $sp, $sp, 4
-sw $t0, 0($sp)
 li $t0, 1
 subu $sp, $sp, 4
 sw $t0, 0($sp)
@@ -82,6 +89,7 @@ subu $sp, $sp, 4
 sw $v0, 0($sp)
 lw $v0, 0($sp)
 addu $sp, $sp, 4
+endif_1:
 func_simples_end:
 lw $fp, 0($sp)
 lw $ra, 4($sp)

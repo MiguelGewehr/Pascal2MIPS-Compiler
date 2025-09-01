@@ -1,6 +1,7 @@
 package checker;
 
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import parser.PascalParser;
 import parser.PascalParserBaseVisitor;
@@ -72,17 +73,37 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
     }
 
     /**
+     * Verifica se um símbolo já foi declarado no escopo atual
+     */
+    private void checkRedeclaration(String name, int line, String symbolType) {
+        Entry existing = symbolTable.lookupCurrentScope(name);
+        if (existing != null) {
+            System.err.printf("SEMANTIC ERROR (%d): %s '%s' already declared at line %d.\n", 
+                            line, symbolType, name, existing.getLine());
+            System.exit(1);
+        }
+    }
+
+    /**
+     * Verifica se um símbolo foi declarado anteriormente
+     */
+    private Entry requireDeclaredSymbol(String name, int line, String symbolType) {
+        Entry entry = symbolTable.lookupEntry(name);
+        if (entry == null) {
+            System.err.printf("SEMANTIC ERROR (%d): %s '%s' was not declared.\n", 
+                            line, symbolType, name);
+            System.exit(1);
+        }
+        return entry;
+    }
+
+    /**
      * Testa se o dado token foi declarado antes e retorna seu tipo.
      */
     private TypeInfo checkVar(Token token) {
         String text = token.getText();
         int line = token.getLine();
-        Entry entry = symbolTable.lookupEntry(text);
-        
-        if (entry == null) {
-            System.err.printf("SEMANTIC ERROR (%d): variable '%s' was not declared.\n", line, text);
-            System.exit(1);
-        }
+        Entry entry = requireDeclaredSymbol(text, line, "variable");
         
         if (entry instanceof ArrayEntry) {
             ArrayEntry arrayEntry = (ArrayEntry) entry;
@@ -99,13 +120,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         String text = token.getText();
         int line = token.getLine();
         
-        // Verifica se já existe no escopo atual
-        Entry existing = symbolTable.lookupCurrentScope(text);
-        if (existing != null) {
-            System.err.printf("SEMANTIC ERROR (%d): variable '%s' already declared at line %d.\n", 
-                             line, text, existing.getLine());
-            System.exit(1);
-        }
+        checkRedeclaration(text, line, "variable");
         
         Entry entry;
         if (lastDeclType == Type.ARRAY && lastArrayType != null) {
@@ -124,12 +139,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         String text = token.getText();
         int line = token.getLine();
         
-        Entry existing = symbolTable.lookupCurrentScope(text);
-        if (existing != null) {
-            System.err.printf("SEMANTIC ERROR (%d): constant '%s' already declared at line %d.\n", 
-                             line, text, existing.getLine());
-            System.exit(1);
-        }
+        checkRedeclaration(text, line, "constant");
         
         ConstEntry constEntry = new ConstEntry(text, line, lastDeclType, value);
         symbolTable.addEntry(text, constEntry);
@@ -138,7 +148,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
     /**
      * Valida acesso a array e retorna o tipo do elemento
      */
-    private TypeInfo checkArrayAccess(Token arrayToken, Type indexType, int line) {
+    private TypeInfo checkArrayAccess(Token arrayToken, AST indexNode, int line) {
         String arrayName = arrayToken.getText();
         
         Entry entry = symbolTable.lookupEntry(arrayName);
@@ -153,13 +163,23 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         }
         
         // Verifica se o índice é do tipo correto (integer)
-        if (indexType != Type.INTEGER) {
+        if (indexNode.type != Type.INTEGER) {
             System.err.printf("SEMANTIC ERROR (%d): array index must be integer, got '%s'.\n", 
-                             line, indexType.toString());
+                             line, indexNode.type.toString());
             System.exit(1);
         }
         
+        // Se o índice for uma constante, verifica os limites
         ArrayEntry arrayEntry = (ArrayEntry) entry;
+        if (indexNode.kind == NodeKind.INT_VAL_NODE) {
+            int index = indexNode.intData;
+            if (!arrayEntry.isValidIndex(index)) {
+                System.err.printf("SEMANTIC ERROR (%d): array index %d is out of bounds for array '%s[%d..%d]'.\n",
+                                line, index, arrayName, arrayEntry.getStartIndex(), arrayEntry.getEndIndex());
+                System.exit(1);
+            }
+        }
+        
         return new TypeInfo(arrayEntry.getElementType());
     }
 
@@ -242,12 +262,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         int line = ctx.IDENTIFIER().getSymbol().getLine();
         
         // Verifica redeclaração
-        Entry existing = symbolTable.lookupCurrentScope(procName);
-        if (existing != null) {
-            System.err.printf("SEMANTIC ERROR (%d): procedure '%s' already declared at line %d.\n", 
-                            line, procName, existing.getLine());
-            System.exit(1);
-        }
+        checkRedeclaration(procName, line, "procedure");
         
         // COLETA OS PARÂMETROS ANTES DE CRIAR A ENTRADA 
         List<ParamEntry> paramList = new ArrayList<>();
@@ -301,12 +316,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         int line = ctx.IDENTIFIER(0).getSymbol().getLine();
         
         // Verifica redeclaração
-        Entry existing = symbolTable.lookupCurrentScope(funcName);
-        if (existing != null) {
-            System.err.printf("SEMANTIC ERROR (%d): function '%s' already declared at line %d.\n", 
-                            line, funcName, existing.getLine());
-            System.exit(1);
-        }
+        checkRedeclaration(funcName, line, "function");
         
         Type returnType = getTypeFromName(returnTypeName);
         if (returnType == Type.NO_TYPE) {
@@ -393,12 +403,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
             int line = id.getSymbol().getLine();
             
             // Verifica redeclaração no escopo atual
-            Entry existing = symbolTable.lookupCurrentScope(paramName);
-            if (existing != null) {
-                System.err.printf("SEMANTIC ERROR (%d): parameter '%s' already declared at line %d.\n", 
-                                 line, paramName, existing.getLine());
-                System.exit(1);
-            }
+            checkRedeclaration(paramName, line, "parameter");
             
             ParamEntry paramEntry = new ParamEntry(paramName, line, paramType, isVarParam);
             symbolTable.addEntry(paramName, paramEntry);
@@ -566,10 +571,10 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         if (ctx.LBRACK() != null) {
             // Acesso a array: IDENTIFIER[expression]
             AST indexNode = visit(ctx.expression());
-            Type indexType = indexNode.type;
+            int line = ctx.IDENTIFIER().getSymbol().getLine();
             
-            TypeInfo resultType = checkArrayAccess(ctx.IDENTIFIER().getSymbol(), indexType, 
-                                                  ctx.IDENTIFIER().getSymbol().getLine());
+            // Obtém a entrada do array na tabela de símbolos e verifica limites
+            TypeInfo resultType = checkArrayAccess(ctx.IDENTIFIER().getSymbol(), indexNode, line);
             
             String arrayName = ctx.IDENTIFIER().getText();
             AST arrayAccessNode = new AST(NodeKind.ARRAY_ACCESS_NODE, arrayName, resultType.type);
@@ -671,11 +676,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         String functionName = functionToken.getText();
         int line = functionToken.getLine();
         
-        Entry entry = symbolTable.lookupEntry(functionName);
-        if (entry == null) {
-            System.err.printf("SEMANTIC ERROR (%d): function '%s' was not declared.\n", line, functionName);
-            System.exit(1);
-        }
+        Entry entry = requireDeclaredSymbol(functionName, line, "function");
         
         if (!(entry instanceof FuncEntry)) {
             System.err.printf("SEMANTIC ERROR (%d): '%s' is not a function.\n", line, functionName);
@@ -748,11 +749,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         String procName = ctx.IDENTIFIER().getText();
         int line = ctx.IDENTIFIER().getSymbol().getLine();
         
-        Entry entry = symbolTable.lookupEntry(procName);
-        if (entry == null) {
-            System.err.printf("SEMANTIC ERROR (%d): procedure '%s' was not declared.\n", line, procName);
-            System.exit(1);
-        }
+        Entry entry = requireDeclaredSymbol(procName, line, "procedure");
         
         if (!(entry instanceof FuncEntry)) {
             System.err.printf("SEMANTIC ERROR (%d): '%s' is not a procedure or function.\n", line, procName);
