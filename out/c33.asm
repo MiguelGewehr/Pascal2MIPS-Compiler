@@ -14,8 +14,8 @@ sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
 sw $t0, var_counter
-jal proc_incrementCounter
-jal proc_incrementCounter
+jal func_incrementCounter
+jal func_incrementCounter
 la $t0, str_0
 subu $sp, $sp, 4
 sw $t0, 0($sp)

@@ -51,21 +51,22 @@ public class CodegenVisitor {
      */
     public String generate(AST program, SymbolTable symbolTable, StrTable stringTable) {
         System.out.println("DEBUG: Entrando em generate()");
-        this.strTable = stringTable;
-        mipsCode.setLength(0); // Limpa o buffer
-        labelCounter = 0;
-        varLabels.clear();
-        arrayInfo.clear();
-        functionInfo.clear();
-        functionStack.clear();
-        currentFunction = null;
         
-        // Define que estamos prestes a processar o bloco de mais alto nível.
-        this.isTopLevelBlock = true;
-
-        emitHeader();        // Emite cabeçalho MIPS
-        visitNode(program);  // Visita todos os nós da AST
-        emitFooter();        // Emite rodapé MIPS
+        // Initialize state
+        strTable = stringTable;
+        mipsCode = new StringBuilder();
+        labelCounter = 0;
+        varLabels = new HashMap<>();
+        arrayInfo = new HashMap<>();
+        functionInfo = new HashMap<>();
+        functionStack = new Stack<>();
+        currentFunction = null;
+        isTopLevelBlock = true;
+        
+        // Generate code
+        emitHeader();
+        visitNode(program);
+        emitFooter();
         
         System.out.println("DEBUG: Saindo de generate()");
         return mipsCode.toString();
@@ -496,10 +497,8 @@ public class CodegenVisitor {
         // Restaura registradores
         mipsCode.append("lw $fp, 0($sp)\n");   // Restaura frame pointer
         mipsCode.append("lw $ra, 4($sp)\n");   // Restaura return address
-        mipsCode.append("addu $sp, $sp, 8\n"); // Restaura stack
-        
-        // Retorna
-        mipsCode.append("jr $ra\n");
+        mipsCode.append("addu $sp, $sp, 8\n"); // Restaura stack pointer
+        mipsCode.append("jr $ra\n");           // Retorna
         System.out.println("DEBUG: Saindo de emitFunctionEpilog()");
     }
 
@@ -906,53 +905,40 @@ public class CodegenVisitor {
         } else if (node.stringData.equalsIgnoreCase("read") || node.stringData.equalsIgnoreCase("readln")) {
             visitBuiltinRead(node);
         } else {
-            // Procedimento definido pelo usuário
-            FuncEntry procInfo = functionInfo.get(node.stringData);
-            if (procInfo != null) {
-                // Verifica se há argumentos antes de tentar acessá-los
+            // Verifica se é uma chamada de função ou procedimento
+            String name = node.stringData;
+            FuncEntry entry = functionInfo.get(name);
+            
+            if (entry != null) {
+                // Processa argumentos na ordem inversa (da direita para a esquerda)
                 if (node.getChildCount() > 0) {
                     AST argsNode = node.getChild(0);
-                    
-                    // Verifica se há argumentos reais para processar
                     if (argsNode != null && argsNode.getChildCount() > 0) {
-                        // Empilha argumentos na ordem reversa para facilitar acesso pelos parâmetros
                         for (int i = argsNode.getChildCount() - 1; i >= 0; i--) {
                             AST argNode = argsNode.getChild(i);
-                            
-                            // Verifica bounds antes de acessar parâmetros
-                            if (i < procInfo.getParameters().size()) {
-                                ParamEntry paramInfo = procInfo.getParameters().get(i);
-                                
-                                if (paramInfo.isReference()) {
-                                    // Passagem por referência - empilha endereço
-                                    emitArgumentByReference(argNode);
-                                } else {
-                                    // Passagem por valor - avalia expressão
-                                    visitNode(argNode);
-                                }
-                            } else {
-                                // Caso tenha mais argumentos que parâmetros
-                                visitNode(argNode);
-                            }
+                            visitNode(argNode);
                         }
                     }
                 }
                 
-                // Chama o procedimento
-                mipsCode.append("jal proc_" + procInfo.getName() + "\n");
+                // Chama a função/procedimento
+                mipsCode.append("jal func_" + name + "\n");
                 
                 // Remove argumentos da pilha
-                int actualArgsCount = 0;
-                if (node.getChildCount() > 0 && node.getChild(0) != null) {
-                    actualArgsCount = node.getChild(0).getChildCount();
+                if (node.getChildCount() > 0) {
+                    AST argsNode = node.getChild(0);
+                    if (argsNode != null) {
+                        int argsSize = argsNode.getChildCount() * 4;
+                        if (argsSize > 0) {
+                            mipsCode.append("addu $sp, $sp, " + argsSize + "\n");
+                        }
+                    }
                 }
                 
-                int argsSize = actualArgsCount * 4;
-                if (argsSize > 0) {
-                    mipsCode.append("addu $sp, $sp, " + argsSize + "\n");
+                // Se for uma função sendo usada como procedimento, descarta o valor de retorno
+                if (entry.getEntryType() != null) {
+                    emitPopTemp("$t0"); // Remove o valor de retorno da pilha
                 }
-            } else {
-                 System.out.println("DEBUG: ERRO - Procedimento '" + node.stringData + "' não encontrado em functionInfo.");
             }
         }
         System.out.println("DEBUG: Saindo de visitProcedureCall()");
