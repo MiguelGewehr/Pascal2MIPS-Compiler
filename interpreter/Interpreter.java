@@ -3,6 +3,7 @@ package interpreter;
 import ast.AST;
 import ast.NodeKind;
 import typing.Type;
+import entries.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
@@ -25,56 +26,11 @@ public class Interpreter {
     // Scanner para entrada do usuário (para read/readln)
     private Scanner scanner = new Scanner(System.in);
     
-    // Arrays - mapeamento de nome para dados do array
-    private Map<String, ArrayData> arrays = new HashMap<>();
+    // Entries - mapeamento de nome para entries
+    private Map<String, Entry> entries = new HashMap<>();
     
-    // Classe para dados de array
-    private static class ArrayData {
-        Object[] elements;
-        int startIndex;
-        int endIndex;
-        Type elementType;
-        
-        ArrayData(int startIndex, int endIndex, Type elementType) {
-            this.startIndex = startIndex;
-            this.endIndex = endIndex;
-            this.elementType = elementType;
-            this.elements = new Object[endIndex - startIndex + 1];
-            
-            // Inicializa com valores padrão
-            Object defaultValue = getDefaultValue(elementType);
-            for (int i = 0; i < elements.length; i++) {
-                elements[i] = defaultValue;
-            }
-        }
-        
-        void setElement(int index, Object value) {
-            if (index < startIndex || index > endIndex) {
-                throw new RuntimeException("Array index " + index + " out of bounds [" + 
-                                         startIndex + ".." + endIndex + "]");
-            }
-            elements[index - startIndex] = value;
-        }
-        
-        Object getElement(int index) {
-            if (index < startIndex || index > endIndex) {
-                throw new RuntimeException("Array index " + index + " out of bounds [" + 
-                                         startIndex + ".." + endIndex + "]");
-            }
-            return elements[index - startIndex];
-        }
-        
-        private static Object getDefaultValue(Type type) {
-            return switch (type) {
-                case INTEGER -> 0;
-                case REAL -> 0.0f;
-                case BOOLEAN -> false;
-                case CHAR -> '\0';
-                case STRING -> "";
-                default -> null;
-            };
-        }
-    }
+        // Mapeamento de arrays para seus valores
+    private Map<String, Object[]> arrayValues = new HashMap<>();
     
     /**
      * Construtor
@@ -217,22 +173,33 @@ public class Interpreter {
         
         if (varType == Type.ARRAY) {
             // Criar o array baseado nas informações da AST
-            ArrayData arrayData = createArrayFromAST(varDeclNode);
-            arrays.put(varName, arrayData);
-            debugPrint("Array " + varName + "[" + arrayData.startIndex + ".." + 
-                      arrayData.endIndex + "] of " + arrayData.elementType + " created");
+            ArrayEntry arrayEntry = createArrayFromAST(varDeclNode);
+            entries.put(varName, arrayEntry);
+            
+            // Criar e inicializar array de valores
+            int size = arrayEntry.getArraySize();
+            Object[] values = new Object[size];
+            Object defaultValue = getDefaultValue(arrayEntry.getElementType());
+            for (int i = 0; i < size; i++) {
+                values[i] = defaultValue;
+            }
+            arrayValues.put(varName, values);
+            
+            debugPrint("Array " + varName + "[" + arrayEntry.getStartIndex() + 
+                      ".." + arrayEntry.getEndIndex() + "] of " + arrayEntry.getElementType() + " created");
         } else {
             Object defaultValue = getDefaultValue(varType);
             memory.put(varName, defaultValue);
+            VarEntry varEntry = new VarEntry(varName, 0, varType);
+            entries.put(varName, varEntry);
             debugPrint("Variable " + varName + " declared and initialized to " + defaultValue);
         }
     }
     
     /**
-     * Cria um ArrayData baseado na informação da AST
-     * Versão corrigida que extrai os bounds reais do array
+     * Cria um ArrayEntry baseado na informação da AST
      */
-    private ArrayData createArrayFromAST(AST varDeclNode) {
+    private ArrayEntry createArrayFromAST(AST varDeclNode) {
         // Valores padrão (fallback)
         int startIndex = 1;
         int endIndex = 10;
@@ -267,13 +234,7 @@ public class Interpreter {
             }
         }
         
-        // Se não conseguimos extrair da AST, tentar usar informações do contexto da tabela de símbolos
-        // ou fazer uma análise mais heurística baseada no nome da variável
-        if (startIndex == 1 && endIndex == 10) {
-            debugPrint("Using default bounds [1..10] - consider implementing symbol table lookup");
-        }
-        
-        return new ArrayData(startIndex, endIndex, elementType);
+        return new ArrayEntry(varDeclNode.stringData, 0, elementType, startIndex, endIndex);
     }
     
     /**
@@ -459,6 +420,40 @@ public class Interpreter {
     }
     
     /**
+     * Define elemento de array
+     */
+    private void setArrayElement(String arrayName, ArrayEntry arrayEntry, int index, Object value) {
+        if (!arrayEntry.isValidIndex(index)) {
+            throw new RuntimeException("Array index " + index + " out of bounds [" + 
+                                     arrayEntry.getStartIndex() + ".." + arrayEntry.getEndIndex() + "]");
+        }
+        
+        Object[] values = arrayValues.get(arrayName);
+        if (values == null) {
+            throw new RuntimeException("Array values not initialized for " + arrayName);
+        }
+        
+        values[index - arrayEntry.getStartIndex()] = value;
+    }
+    
+    /**
+     * Obtém elemento de array
+     */
+    private Object getArrayElement(String arrayName, ArrayEntry arrayEntry, int index) {
+        if (!arrayEntry.isValidIndex(index)) {
+            throw new RuntimeException("Array index " + index + " out of bounds [" + 
+                                     arrayEntry.getStartIndex() + ".." + arrayEntry.getEndIndex() + "]");
+        }
+        
+        Object[] values = arrayValues.get(arrayName);
+        if (values == null) {
+            throw new RuntimeException("Array values not initialized for " + arrayName);
+        }
+        
+        return values[index - arrayEntry.getStartIndex()];
+    }
+    
+    /**
      * Executa atribuição a uma variável (simples ou array)
      */
     private void executeVariableAssignment(AST varNode, Object value) {
@@ -477,12 +472,13 @@ public class Interpreter {
                 Object indexObj = evaluateExpression(varNode.getChild(0));
                 int index = convertToInt(indexObj);
                 
-                ArrayData arrayData = arrays.get(arrayName);
-                if (arrayData == null) {
+                Entry entry = entries.get(arrayName);
+                if (!(entry instanceof ArrayEntry)) {
                     throw new RuntimeException("Array '" + arrayName + "' not found");
                 }
                 
-                arrayData.setElement(index, value);
+                ArrayEntry arrayEntry = (ArrayEntry) entry;
+                setArrayElement(arrayName, arrayEntry, index, value);
                 debugPrint("Array assignment: " + arrayName + "[" + index + "] := " + value);
             }
             default -> throw new RuntimeException("Invalid assignment target: " + varNode.kind);
@@ -681,12 +677,13 @@ public class Interpreter {
                 Object indexObj = evaluateExpression(exprNode.getChild(0));
                 int index = convertToInt(indexObj);
                 
-                ArrayData arrayData = arrays.get(arrayName);
-                if (arrayData == null) {
+                Entry entry = entries.get(arrayName);
+                if (!(entry instanceof ArrayEntry)) {
                     throw new RuntimeException("Array '" + arrayName + "' not found");
                 }
                 
-                return arrayData.getElement(index);
+                ArrayEntry arrayEntry = (ArrayEntry) entry;
+                return getArrayElement(arrayName, arrayEntry, index);
             }
             
             // Operações aritméticas
@@ -973,22 +970,30 @@ public class Interpreter {
      */
     private void printMemoryState() {
         System.out.println("\n[INTERPRETER] Memory state:");
-        if (memory.isEmpty()) {
+        if (memory.isEmpty() && entries.isEmpty()) {
             System.out.println("  (empty)");
         } else {
+            // Imprimir variáveis simples
             for (Map.Entry<String, Object> entry : memory.entrySet()) {
                 System.out.println("  " + entry.getKey() + " = " + entry.getValue() + 
                                  " (" + entry.getValue().getClass().getSimpleName() + ")");
             }
-        }
-        
-        if (!arrays.isEmpty()) {
-            System.out.println("\n[INTERPRETER] Arrays:");
-            for (Map.Entry<String, ArrayData> entry : arrays.entrySet()) {
-                ArrayData arrayData = entry.getValue();
-                System.out.println("  " + entry.getKey() + "[" + arrayData.startIndex + 
-                                 ".." + arrayData.endIndex + "] = " + 
-                                 java.util.Arrays.toString(arrayData.elements));
+            
+            // Imprimir arrays e constantes
+            System.out.println("\n[INTERPRETER] Arrays and Constants:");
+            for (Map.Entry<String, Entry> entry : entries.entrySet()) {
+                Entry e = entry.getValue();
+                if (e instanceof ArrayEntry) {
+                    ArrayEntry arrayEntry = (ArrayEntry) e;
+                    Object[] values = arrayValues.get(entry.getKey());
+                    System.out.println("  " + entry.getKey() + "[" + arrayEntry.getStartIndex() + 
+                                     ".." + arrayEntry.getEndIndex() + "] of " + arrayEntry.getElementType() + 
+                                     " = " + (values != null ? java.util.Arrays.toString(values) : "null"));
+                } else if (e instanceof ConstEntry) {
+                    ConstEntry constEntry = (ConstEntry) e;
+                    System.out.println("  const " + entry.getKey() + " = " + constEntry.getValue() + 
+                                     " (" + constEntry.getEntryType() + ")");
+                }
             }
         }
     }
