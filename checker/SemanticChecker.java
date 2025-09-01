@@ -1,10 +1,26 @@
 package checker;
 
 import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
+
 import parser.PascalParser;
+import parser.PascalParser.ArrayTypeContext;
+import parser.PascalParser.TypeDenoterContext;
 import parser.PascalParserBaseVisitor;
+
+import tables.StrTable;
+import tables.SymbolTable;
+import typing.Type;
+import typing.Conv;
+import entries.*;
+import ast.AST;
+import ast.NodeKind;
+
+import java.util.ArrayList;
+import java.util.List;
+
 import tables.StrTable;
 import tables.SymbolTable;
 import typing.Type;
@@ -17,34 +33,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Analisador semântico de Pascal implementado como um visitor da ParseTree do ANTLR.
+@SuppressWarnings("CheckReturnValue")
 public class SemanticChecker extends PascalParserBaseVisitor<AST> {
     
     private StrTable st = new StrTable();
     private SymbolTable symbolTable = new SymbolTable();
     private Type lastDeclType;
-    private Type.ArrayType lastArrayType;
-    
-    // Classe interna para armazenar informações de tipo inferidas
-    private static class TypeInfo {
-        Type type;
-        Type.ArrayType arrayType; // Para quando type == ARRAY
-        
-        TypeInfo(Type type) {
-            this.type = type;
-            this.arrayType = null;
-        }
-        
-        TypeInfo(Type.ArrayType arrayType) {
-            this.type = Type.ARRAY;
-            this.arrayType = arrayType;
-        }
-        
-        @Override
-        public String toString() {
-            return type == Type.ARRAY && arrayType != null ? 
-                   arrayType.toString() : type.toString();
-        }
-    }
+    private Type lastArrayElementType;  // Para processar declarações de arrays
+    private int lastArrayStart;         // Para processar declarações de arrays
+    private int lastArrayEnd;           // Para processar declarações de arrays
 
     /**
      * Construtor - inicializa procedimentos e funções built-in
@@ -99,17 +96,18 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
 
     /**
      * Testa se o dado token foi declarado antes e retorna seu tipo.
+     * Para arrays, retorna o tipo do elemento.
      */
-    private TypeInfo checkVar(Token token) {
+    private Type checkVar(Token token) {
         String text = token.getText();
         int line = token.getLine();
         Entry entry = requireDeclaredSymbol(text, line, "variable");
         
         if (entry instanceof ArrayEntry) {
             ArrayEntry arrayEntry = (ArrayEntry) entry;
-            return new TypeInfo(arrayEntry.getArrayType());
+            return arrayEntry.getElementType();
         } else {
-            return new TypeInfo(entry.getEntryType());
+            return entry.getEntryType();
         }
     }
 
@@ -123,8 +121,8 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         checkRedeclaration(text, line, "variable");
         
         Entry entry;
-        if (lastDeclType == Type.ARRAY && lastArrayType != null) {
-            entry = new ArrayEntry(text, line, lastArrayType);
+        if (lastDeclType == Type.ARRAY) {
+            entry = new ArrayEntry(text, line, lastArrayElementType, lastArrayStart, lastArrayEnd);
         } else {
             entry = new VarEntry(text, line, lastDeclType);
         }
@@ -148,7 +146,7 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
     /**
      * Valida acesso a array e retorna o tipo do elemento
      */
-    private TypeInfo checkArrayAccess(Token arrayToken, AST indexNode, int line) {
+    private Type checkArrayAccess(Token arrayToken, AST indexNode, int line) {
         String arrayName = arrayToken.getText();
         
         Entry entry = symbolTable.lookupEntry(arrayName);
@@ -180,7 +178,8 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
             }
         }
         
-        return new TypeInfo(arrayEntry.getElementType());
+        // Retorna o tipo do elemento do array
+        return arrayEntry.getElementType();
     }
 
     /**
@@ -436,7 +435,10 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         Type constType = constantNode.type;
         
         lastDeclType = constType;
-        lastArrayType = null; // Constantes não são arrays
+        // Arrays não podem ser constantes
+        lastArrayElementType = null;
+        lastArrayStart = 0;
+        lastArrayEnd = 0;
         
         Token constToken = ctx.IDENTIFIER().getSymbol();
         String constName = constToken.getText();
@@ -500,9 +502,9 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
             return new AST(NodeKind.BOOL_VAL_NODE, 0, Type.BOOLEAN);
         } else if (ctx.IDENTIFIER() != null) {
             // Referência a outra constante
-            TypeInfo typeInfo = checkVar(ctx.IDENTIFIER().getSymbol());
+            Type type = checkVar(ctx.IDENTIFIER().getSymbol());
             String varName = ctx.IDENTIFIER().getText();
-            return new AST(NodeKind.VAR_USE_NODE, varName, typeInfo.type);
+            return new AST(NodeKind.VAR_USE_NODE, varName, type);
         }
         return new AST(NodeKind.INT_VAL_NODE, 0, Type.NO_TYPE);
     }
@@ -574,18 +576,19 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
             int line = ctx.IDENTIFIER().getSymbol().getLine();
             
             // Obtém a entrada do array na tabela de símbolos e verifica limites
-            TypeInfo resultType = checkArrayAccess(ctx.IDENTIFIER().getSymbol(), indexNode, line);
+            Type elementType = checkArrayAccess(ctx.IDENTIFIER().getSymbol(), indexNode, line);
             
             String arrayName = ctx.IDENTIFIER().getText();
-            AST arrayAccessNode = new AST(NodeKind.ARRAY_ACCESS_NODE, arrayName, resultType.type);
+            // Quando acessamos um elemento do array, o tipo do nó deve ser o tipo do elemento
+            AST arrayAccessNode = new AST(NodeKind.ARRAY_ACCESS_NODE, arrayName, elementType);
             arrayAccessNode.addChild(indexNode);
             
             return arrayAccessNode;
         } else {
             // Variável simples
-            TypeInfo typeInfo = checkVar(ctx.IDENTIFIER().getSymbol());
+            Type type = checkVar(ctx.IDENTIFIER().getSymbol());
             String varName = ctx.IDENTIFIER().getText();
-            return new AST(NodeKind.VAR_USE_NODE, varName, typeInfo.type);
+            return new AST(NodeKind.VAR_USE_NODE, varName, type);
         }
     }
 
@@ -611,9 +614,9 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
                 return funcCallNode;
             } else {
                 // Variável simples
-                TypeInfo typeInfo = checkVar(ctx.IDENTIFIER().getSymbol());
+                Type type = checkVar(ctx.IDENTIFIER().getSymbol());
                 String varName = ctx.IDENTIFIER().getText();
-                return new AST(NodeKind.VAR_USE_NODE, varName, typeInfo.type);
+                return new AST(NodeKind.VAR_USE_NODE, varName, type);
             }
         } else if (ctx.INTEGER() != null) {
             int value = Integer.parseInt(ctx.INTEGER().getText());
@@ -831,15 +834,19 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
     }
 
     /**
-     * Processa um typeDenoter e define lastDeclType e lastArrayType adequadamente
-     * NOVA VERSÃO: retorna também o nó AST correspondente ao tipo
+     * Processa um typeDenoter e define lastDeclType adequadamente
+     * Retorna também o nó AST correspondente ao tipo
      */
     private AST processTypeDenoter(PascalParser.TypeDenoterContext ctx) {
         if (ctx.IDENTIFIER() != null) {
             // Tipo simples
             String typeName = ctx.IDENTIFIER().getText();
             lastDeclType = getTypeFromName(typeName);
-            lastArrayType = null;
+            
+            // Para tipos simples, reseta os campos de array
+            lastArrayElementType = null;
+            lastArrayStart = 0;
+            lastArrayEnd = 0;
             
             if (lastDeclType == Type.NO_TYPE) {
                 System.err.printf("SEMANTIC ERROR: unknown type '%s'.\n", typeName);
@@ -851,23 +858,25 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
         } else if (ctx.arrayType() != null) {
             // Tipo array
             lastDeclType = Type.ARRAY;
-            lastArrayType = processArrayType(ctx.arrayType());
+            processArrayType(ctx.arrayType());
             
             // Criar nó AST para o tipo array que inclui as informações de range
             AST arrayTypeNode = new AST(NodeKind.ARRAY_TYPE_NODE, Type.ARRAY);
             
             // Adicionar nó de range como filho
-            AST rangeNode = createRangeNode(lastArrayType.getStartIndex(), lastArrayType.getEndIndex());
+            AST rangeNode = createRangeNode(lastArrayStart, lastArrayEnd);
             arrayTypeNode.addChild(rangeNode);
             
             // Adicionar informação do tipo do elemento
-            AST elementTypeNode = new AST(NodeKind.VAR_DECL_NODE, lastArrayType.getElementType().toString(), lastArrayType.getElementType());
+            AST elementTypeNode = new AST(NodeKind.VAR_DECL_NODE, lastArrayElementType.toString(), lastArrayElementType);
             arrayTypeNode.addChild(elementTypeNode);
             
             return arrayTypeNode;
         } else {
             lastDeclType = Type.NO_TYPE;
-            lastArrayType = null;
+            lastArrayElementType = null;
+            lastArrayStart = 0;
+            lastArrayEnd = 0;
             return null;
         }
     }
@@ -891,26 +900,25 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
     }
     
     /**
-     * Processa um arrayType e retorna o ArrayType correspondente
+     * Processa um arrayType e define os atributos de array
      */
-    private Type.ArrayType processArrayType(PascalParser.ArrayTypeContext ctx) {
+    private Type processArrayType(PascalParser.ArrayTypeContext ctx) {
         // Extrai os índices do range
         PascalParser.IndexRangeContext rangeCtx = ctx.indexRange();
-        int startIndex = extractNumber(rangeCtx.signedNumber(0));
-        int endIndex = extractNumber(rangeCtx.signedNumber(1));
+        lastArrayStart = extractNumber(rangeCtx.signedNumber(0));
+        lastArrayEnd = extractNumber(rangeCtx.signedNumber(1));
         
         // Valida o range
-        if (startIndex > endIndex) {
+        if (lastArrayStart > lastArrayEnd) {
             System.err.printf("SEMANTIC ERROR: Invalid array range [%d..%d] - start index must be <= end index.\n", 
-                             startIndex, endIndex);
+                             lastArrayStart, lastArrayEnd);
             System.exit(1);
         }
         
         // Processa o tipo do elemento recursivamente
-        Type elementType;
         if (ctx.typeDenoter().IDENTIFIER() != null) {
-            elementType = getTypeFromName(ctx.typeDenoter().IDENTIFIER().getText());
-            if (elementType == Type.NO_TYPE) {
+            lastArrayElementType = getTypeFromName(ctx.typeDenoter().IDENTIFIER().getText());
+            if (lastArrayElementType == Type.NO_TYPE) {
                 System.err.printf("SEMANTIC ERROR: unknown array element type '%s'.\n", 
                                  ctx.typeDenoter().IDENTIFIER().getText());
                 System.exit(1);
@@ -919,10 +927,9 @@ public class SemanticChecker extends PascalParserBaseVisitor<AST> {
             // Array multidimensional - por enquanto não suportado completamente
             System.err.println("SEMANTIC ERROR: Multidimensional arrays not yet fully supported.");
             System.exit(1);
-            elementType = Type.NO_TYPE;
+            lastArrayElementType = Type.NO_TYPE;
         }
-        
-        return new Type.ArrayType(elementType, startIndex, endIndex);
+        return Type.ARRAY;
     }
     
     /**

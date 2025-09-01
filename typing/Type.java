@@ -80,61 +80,7 @@ public enum Type {
         return t1 == BOOLEAN && t2 == BOOLEAN;
     }
 
-    /**
-     * Classe para representar tipos array com informações completas
-     */
-    public static class ArrayType {
-        private final Type elementType;
-        private final int startIndex;
-        private final int endIndex;
-
-        public ArrayType(Type elementType, int startIndex, int endIndex) {
-            this.elementType = elementType;
-            this.startIndex = startIndex;
-            this.endIndex = endIndex;
-        }
-
-        public Type getElementType() { return elementType; }
-        public int getStartIndex() { return startIndex; }
-        public int getEndIndex() { return endIndex; }
-        public int getSize() { return endIndex - startIndex + 1; }
-
-        /**
-         * Verifica se um índice está dentro dos limites válidos
-         */
-        public boolean isValidIndex(int index) {
-            return index >= startIndex && index <= endIndex;
-        }
-
-        /**
-         * Verifica compatibilidade entre dois tipos array
-         */
-        public boolean isCompatible(ArrayType other) {
-            return this.elementType == other.elementType &&
-                   this.startIndex == other.startIndex &&
-                   this.endIndex == other.endIndex;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("array[%d..%d] of %s", startIndex, endIndex, elementType);
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (!(obj instanceof ArrayType)) return false;
-            ArrayType other = (ArrayType) obj;
-            return elementType == other.elementType &&
-                   startIndex == other.startIndex &&
-                   endIndex == other.endIndex;
-        }
-
-        @Override
-        public int hashCode() {
-            return elementType.hashCode() ^ startIndex ^ endIndex;
-        }
-    }
+    // A classe ArrayType foi removida, pois a lógica de array foi movida para ArrayEntry
 
     /**
      * Tabelas de unificação para diferentes operadores 

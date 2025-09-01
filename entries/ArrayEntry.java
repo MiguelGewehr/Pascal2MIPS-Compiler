@@ -8,12 +8,16 @@ import typing.Type;
 public class ArrayEntry implements Entry {
     private final String name;
     private final int line;
-    private final Type.ArrayType arrayType;
+    private final Type elementType;
+    private final int startIndex;
+    private final int endIndex;
     
-    public ArrayEntry(String name, int line, Type.ArrayType arrayType) {
+    public ArrayEntry(String name, int line, Type elementType, int startIndex, int endIndex) {
         this.name = name;
         this.line = line;
-        this.arrayType = arrayType;
+        this.elementType = elementType;
+        this.startIndex = startIndex;
+        this.endIndex = endIndex;
     }
     
     @Override
@@ -25,26 +29,33 @@ public class ArrayEntry implements Entry {
     @Override
     public Type getEntryType() { return Type.ARRAY; }
     
-    public Type.ArrayType getArrayType() { return arrayType; }
+    public Type getElementType() { return elementType; }
     
-    public Type getElementType() { return arrayType.getElementType(); }
+    public int getStartIndex() { return startIndex; }
     
-    public int getStartIndex() { return arrayType.getStartIndex(); }
+    public int getEndIndex() { return endIndex; }
     
-    public int getEndIndex() { return arrayType.getEndIndex(); }
-    
-    public int getArraySize() { return arrayType.getSize(); }
+    public int getArraySize() { return endIndex - startIndex + 1; }
     
     /**
      * Verifica se um índice está dentro dos limites do array
      */
     public boolean isValidIndex(int index) {
-        return index >= arrayType.getStartIndex() && index <= arrayType.getEndIndex();
+        return index >= startIndex && index <= endIndex;
+    }
+    
+    /**
+     * Verifica compatibilidade entre dois arrays
+     */
+    public boolean isCompatible(ArrayEntry other) {
+        return this.elementType == other.elementType &&
+               this.startIndex == other.startIndex &&
+               this.endIndex == other.endIndex;
     }
     
     @Override
     public String toString() {
-        return String.format("ArrayEntry{name='%s', line=%d, type=%s}", 
-                           name, line, arrayType.toString());
+        return String.format("ArrayEntry{name='%s', line=%d, type=array[%d..%d] of %s}", 
+                           name, line, startIndex, endIndex, elementType);
     }
 }
