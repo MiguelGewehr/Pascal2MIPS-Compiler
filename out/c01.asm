@@ -11,6 +11,7 @@ float_const_1: .float 3.2
 .text
 .globl main
 main:
+move $fp, $sp
 # Variáveis globais
 li $t0, 10
 subu $sp, $sp, 4
@@ -182,5 +183,8 @@ swc1 $f0, 0($sp)
 lwc1 $f0, 0($sp)
 addu $sp, $sp, 4
 swc1 $f0, var_x
+j end_main_2
+
+end_main_2:
 li $v0, 10
 syscall

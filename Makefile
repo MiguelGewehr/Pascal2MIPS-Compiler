@@ -36,9 +36,41 @@ javac:
 # Executa o Main.java com arquivo de entrada
 run:
 	$(JAVA) $(CLASS_PATH_OPTION) Main $(FILE)
+# Executa apenas o analisador léxico (gera tokens)
+tokens:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Uso: make tokens FILE=caminho/arquivo.pas"; \
+		echo "Exemplo: make tokens FILE=in/c01.pas"; \
+		exit 1; \
+	fi
+	$(GRUN) parser.$(GRAMMAR_NAME) program -tokens $(FILE)
+
+# Gera e exibe a árvore sintática em modo texto
+tree:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Uso: make tree FILE=caminho/arquivo.pas"; \
+		echo "Exemplo: make tree FILE=in/c01.pas"; \
+		exit 1; \
+	fi
+	$(GRUN) parser.$(GRAMMAR_NAME) program -tree $(FILE)
+
+# Verifica se o parsing é bem-sucedido (sem output da árvore)
+parse:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Uso: make parse FILE=caminho/arquivo.pas"; \
+		echo "Exemplo: make parse FILE=in/c01.pas"; \
+		exit 1; \
+	fi
+	$(GRUN) parser.$(GRAMMAR_NAME) program $(FILE)
+
 # Debug opcional com GUI do ANTLR
 debug:
-	cd $(BIN_PATH) && $(GRUN) parser.$(GRAMMAR_NAME) program -gui $(FILE)
+	@if [ -z "$(FILE)" ]; then \
+		echo "Uso: make debug FILE=caminho/arquivo.pas"; \
+		echo "Exemplo: make debug FILE=in/c01.pas"; \
+		exit 1; \
+	fi
+	$(GRUN) parser.$(GRAMMAR_NAME) program -gui $(FILE)
 # Limpa arquivos gerados
 clean:
 	rm -rf $(GEN_PATH) $(BIN_PATH)
