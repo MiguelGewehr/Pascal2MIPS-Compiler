@@ -36,7 +36,7 @@ syscall
 j end_main_0
 
 
-proc_incrementCounter:
+func_incrementCounter:
 subu $sp, $sp, 8
 sw $ra, 4($sp)
 sw $fp, 0($sp)
@@ -57,7 +57,7 @@ sw $t0, 0($sp)
 lw $t0, 0($sp)
 addu $sp, $sp, 4
 sw $t0, var_counter
-proc_incrementCounter_end:
+func_incrementCounter_end:
 lw $fp, 0($sp)
 lw $ra, 4($sp)
 addu $sp, $sp, 8
