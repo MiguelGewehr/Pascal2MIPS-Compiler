@@ -10,7 +10,7 @@ move $fp, $sp
 li $t0, 3
 subu $sp, $sp, 4
 sw $t0, 0($sp)
-jal func_simples
+jal proc_simples
 addu $sp, $sp, 4
 la $t0, str_1
 subu $sp, $sp, 4

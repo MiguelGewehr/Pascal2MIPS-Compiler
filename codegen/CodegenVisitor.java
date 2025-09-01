@@ -1,23 +1,17 @@
 package codegen;
 
-import ast.*;
-import typing.Type;
 import entries.*;
-import tables.SymbolTable;
+import typing.Type;
+import ast.*;
 import tables.StrTable;
+import tables.SymbolTable;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Stack;
+import java.util.*;
 
 public class CodegenVisitor {
     // Acumula o código MIPS gerado
     private StringBuilder mipsCode = new StringBuilder();
     
-    // Tabela de símbolos para acessar informações das variáveis
-    private SymbolTable symbolTable;
     private StrTable strTable;
     
     // Contadores para labels únicos
@@ -27,78 +21,26 @@ public class CodegenVisitor {
     private Map<String, String> varLabels = new HashMap<>();
     
     // Informações sobre arrays (nome -> [tamanho, tipo])
-    private Map<String, ArrayInfo> arrayInfo = new HashMap<>();
-    
-    // Stack para gerenciar registradores temporários
-    private int stackOffset = 0;
+    private Map<String, ArrayEntry> arrayInfo = new HashMap<>();
     
     // Gerenciamento de escopo e funções
     private Stack<FunctionContext> functionStack = new Stack<>();
-    private Map<String, FunctionInfo> functionInfo = new HashMap<>();
+    private Map<String, FuncEntry> functionInfo = new HashMap<>();
     private FunctionContext currentFunction = null;
 
     // Ajuda a identificar o bloco principal do programa para tratamento especial.
     private boolean isTopLevelBlock = false;
     
-    // Classe auxiliar para informações de array
-    private static class ArrayInfo {
-        public final int size;
-        public final Type elementType;
-        public final int startIndex;
-        
-        public ArrayInfo(int size, Type elementType, int startIndex) {
-            this.size = size;
-            this.elementType = elementType;
-            this.startIndex = startIndex;
-        }
-    }
-    
-    // Classe auxiliar para informações de função
-    private static class FunctionInfo {
-        public final String name;
-        public final Type returnType;
-        public final List<ParameterInfo> parameters;
-        public final String label;
-        public final boolean isFunction; // true para function, false para procedure
-        
-        public FunctionInfo(String name, Type returnType, List<ParameterInfo> parameters, 
-                            String label, boolean isFunction) {
-            this.name = name;
-            this.returnType = returnType;
-            this.parameters = parameters;
-            this.label = label;
-            this.isFunction = isFunction;
-        }
-    }
-    
-    // Classe auxiliar para informações de parâmetro
-    private static class ParameterInfo {
-        public final String name;
-        public final Type type;
-        public final boolean isByReference;
-        public final int offset; // offset no stack frame
-        
-        public ParameterInfo(String name, Type type, boolean isByReference, int offset) {
-            this.name = name;
-            this.type = type;
-            this.isByReference = isByReference;
-            this.offset = offset;
-        }
-    }
-    
     // Classe auxiliar para contexto de função
     private static class FunctionContext {
         public final String name;
-        public final String label;
         public final boolean isFunction;
         public final Type returnType;
         public final Map<String, Integer> localVarOffsets = new HashMap<>();
         public int localVarSize = 0;
-        public int parameterSize = 0;
         
-        public FunctionContext(String name, String label, boolean isFunction, Type returnType) {
+        public FunctionContext(String name, boolean isFunction, Type returnType) {
             this.name = name;
-            this.label = label;
             this.isFunction = isFunction;
             this.returnType = returnType;
         }
@@ -107,9 +49,8 @@ public class CodegenVisitor {
     /**
      * Gera o código MIPS para o programa fornecido.
      */
-    public String generate(AST program, SymbolTable symTable, StrTable stringTable) {
+    public String generate(AST program, SymbolTable symbolTable, StrTable stringTable) {
         System.out.println("DEBUG: Entrando em generate()");
-        this.symbolTable = symTable;
         this.strTable = stringTable;
         mipsCode.setLength(0); // Limpa o buffer
         labelCounter = 0;
@@ -117,7 +58,6 @@ public class CodegenVisitor {
         arrayInfo.clear();
         functionInfo.clear();
         functionStack.clear();
-        stackOffset = 0;
         currentFunction = null;
         
         // Define que estamos prestes a processar o bloco de mais alto nível.
@@ -193,7 +133,6 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Entrando em emitPushTemp()");
         mipsCode.append("subu $sp, $sp, 4\n");
         mipsCode.append("sw " + reg + ", 0($sp)\n");
-        stackOffset += 4;
         System.out.println("DEBUG: Saindo de emitPushTemp()");
     }
 
@@ -201,7 +140,6 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Entrando em emitPopTemp()");
         mipsCode.append("lw " + reg + ", 0($sp)\n");
         mipsCode.append("addu $sp, $sp, 4\n");
-        stackOffset -= 4;
         System.out.println("DEBUG: Saindo de emitPopTemp()");
     }
 
@@ -210,7 +148,6 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Entrando em emitPushFloat()");
         mipsCode.append("subu $sp, $sp, 4\n");
         mipsCode.append("swc1 " + freg + ", 0($sp)\n");
-        stackOffset += 4;
         System.out.println("DEBUG: Saindo de emitPushFloat()");
     }
 
@@ -218,18 +155,12 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Entrando em emitPopFloat()");
         mipsCode.append("lwc1 " + freg + ", 0($sp)\n");
         mipsCode.append("addu $sp, $sp, 4\n");
-        stackOffset -= 4;
         System.out.println("DEBUG: Saindo de emitPopFloat()");
     }
 
     // Despacha para o método apropriado baseado no tipo do nó
     private void visitNode(AST node) {
         System.out.println("DEBUG: Visitando nó: " + node.kind);
-        if (node == null) {
-            System.out.println("DEBUG: Nó nulo, ignorando.");
-            return;
-        }
-        
         switch (node.kind) {
             case PROGRAM_NODE -> visitProgram(node);
             case BLOCK_NODE -> visitBlock(node);
@@ -383,12 +314,12 @@ public class CodegenVisitor {
         String label = "func_" + funcName;
         
         // Cria contexto da função
-        FunctionContext funcContext = new FunctionContext(funcName, label, true, returnType);
+        FunctionContext funcContext = new FunctionContext(funcName, true, returnType);
         functionStack.push(funcContext);
         currentFunction = funcContext;
         
         // Processa lista de parâmetros se existir
-        List<ParameterInfo> parameters = new ArrayList<>();
+        List<ParamEntry> parameters = new ArrayList<>();
         AST paramListNode = null;
         AST blockNode = null;
         
@@ -407,7 +338,7 @@ public class CodegenVisitor {
         }
         
         // Armazena informações da função
-        functionInfo.put(funcName, new FunctionInfo(funcName, returnType, parameters, label, true));
+        functionInfo.put(funcName, new FuncEntry(funcName, node.intData, returnType, parameters));
         
         // Emite label da função
         mipsCode.append("\n" + label + ":\n");
@@ -437,12 +368,12 @@ public class CodegenVisitor {
         String label = "proc_" + procName;
         
         // Cria contexto do procedimento
-        FunctionContext procContext = new FunctionContext(procName, label, false, null);
+        FunctionContext procContext = new FunctionContext(procName, false, null);
         functionStack.push(procContext);
         currentFunction = procContext;
         
         // Processa lista de parâmetros se existir
-        List<ParameterInfo> parameters = new ArrayList<>();
+        List<ParamEntry> parameters = new ArrayList<>();
         AST paramListNode = null;
         AST blockNode = null;
         
@@ -461,7 +392,7 @@ public class CodegenVisitor {
         }
         
         // Armazena informações do procedimento
-        functionInfo.put(procName, new FunctionInfo(procName, null, parameters, label, false));
+        functionInfo.put(procName, new FuncEntry(procName, node.intData, null, parameters));
         
         // Emite label do procedimento
         mipsCode.append("\n" + label + ":\n");
@@ -500,9 +431,9 @@ public class CodegenVisitor {
         System.out.println("DEBUG: Saindo de visitParameterDeclaration()");
     }
 
-    private List<ParameterInfo> processParameterList(AST paramListNode) {
+    private List<ParamEntry> processParameterList(AST paramListNode) {
         System.out.println("DEBUG: Entrando em processParameterList()");
-        List<ParameterInfo> parameters = new ArrayList<>();
+        List<ParamEntry> parameters = new ArrayList<>();
         int offset = 8; // Começa após $ra (4) e $fp (4)
     
         // A estrutura da AST para parâmetros é: PARAM_LIST_NODE -> PARAM_LIST_NODE (seção) -> PARAM_NODE
@@ -518,7 +449,7 @@ public class CodegenVisitor {
                         // Assumindo que a informação 'by reference' está no intData do nó da AST
                         boolean isByRef = paramNode.intData == 1; 
                         
-                        ParameterInfo paramInfo = new ParameterInfo(paramName, paramType, isByRef, offset);
+                        ParamEntry paramInfo = new ParamEntry(paramName, paramNode.intData, paramType, isByRef);
                         parameters.add(paramInfo);
                         
                         if (currentFunction != null) {
@@ -534,14 +465,14 @@ public class CodegenVisitor {
         }
         
         if (currentFunction != null) {
-            currentFunction.parameterSize = offset - 8;
+
         }
         
         System.out.println("DEBUG: Saindo de processParameterList()");
         return parameters;
     }
     // Prólogo da função
-    private void emitFunctionProlog(List<ParameterInfo> parameters) {
+    private void emitFunctionProlog(List<ParamEntry> parameters) {
         System.out.println("DEBUG: Entrando em emitFunctionProlog()");
         // Salva registradores
         mipsCode.append("subu $sp, $sp, 8\n"); // Espaço para $ra e $fp
@@ -575,7 +506,7 @@ public class CodegenVisitor {
     private void visitFunctionCall(AST node) {
         System.out.println("DEBUG: Entrando em visitFunctionCall() para: " + node.stringData);
         String funcName = node.stringData;
-        FunctionInfo funcInfo = functionInfo.get(funcName);
+        FuncEntry funcInfo = functionInfo.get(funcName);
         
         if (funcInfo != null) {
             // Verifica se há argumentos
@@ -587,10 +518,10 @@ public class CodegenVisitor {
                     for (int i = argsNode.getChildCount() - 1; i >= 0; i--) {
                         AST argNode = argsNode.getChild(i);
                         
-                        if (i < funcInfo.parameters.size()) {
-                            ParameterInfo paramInfo = funcInfo.parameters.get(i);
+                        if (i < funcInfo.getParameters().size()) {
+                            ParamEntry paramInfo = funcInfo.getParameters().get(i);
                             
-                            if (paramInfo.isByReference) {
+                            if (paramInfo.isReference()) {
                                 // Passagem por referência - empilha endereço
                                 emitArgumentByReference(argNode);
                             } else {
@@ -607,7 +538,7 @@ public class CodegenVisitor {
             }
             
             // Chama a função
-            mipsCode.append("jal " + funcInfo.label + "\n");
+            mipsCode.append("jal func_" + funcInfo.getName() + "\n");
             
             // Remove argumentos da pilha
             int actualArgsCount = 0;
@@ -621,8 +552,8 @@ public class CodegenVisitor {
             }
             
             // Se for função, empilha o resultado
-            if (funcInfo.isFunction && funcInfo.returnType != null) {
-                if (funcInfo.returnType == Type.REAL) {
+            if (funcInfo.getEntryType() != null) {
+                if (funcInfo.getEntryType() == Type.REAL) {
                     emitPushFloat("$f0");
                 } else {
                     emitPushTemp("$v0");
@@ -661,10 +592,10 @@ public class CodegenVisitor {
         
         // Verifica se já é um parâmetro para não duplicar
         if (currentFunction != null) {
-            FunctionInfo funcInfo = functionInfo.get(currentFunction.name);
+            FuncEntry funcInfo = functionInfo.get(currentFunction.name);
             if (funcInfo != null) {
-                for (ParameterInfo param : funcInfo.parameters) {
-                    if (param.name.equals(varName)) {
+                for (ParamEntry param : funcInfo.getParameters()) {
+                    if (param.getName().equals(varName)) {
                         // É um parâmetro, não uma variável local - não processa novamente
                         System.out.println("DEBUG: " + varName + " é um parâmetro, ignorando.");
                         return;
@@ -746,7 +677,7 @@ public class CodegenVisitor {
             }
             
             int size = endIndex - startIndex + 1;
-            arrayInfo.put(varName, new ArrayInfo(size, elementType, startIndex));
+            arrayInfo.put(varName, new ArrayEntry(varName, varDeclNode.intData, elementType, startIndex, endIndex));
             
             // Insere declaração do array na seção .data
             insertArrayDeclaration(label, size, elementType);
@@ -925,9 +856,9 @@ public class CodegenVisitor {
         emitPopTemp("$t1"); // índice em $t1
         
         // Ajusta o índice baseado no startIndex do array
-        ArrayInfo info = arrayInfo.get(arrayName);
-        if (info != null && info.startIndex != 0) {
-            mipsCode.append("addi $t1, $t1, " + (-info.startIndex) + "\n");
+        ArrayEntry info = arrayInfo.get(arrayName);
+        if (info != null && info.getStartIndex() != 0) {
+            mipsCode.append("addi $t1, $t1, " + (-info.getStartIndex()) + "\n");
         }
         
         // Calcula endereço: base + (índice * 4)
@@ -951,9 +882,9 @@ public class CodegenVisitor {
         emitPopTemp("$t1"); // índice em $t1
         
         // Ajusta o índice baseado no startIndex do array
-        ArrayInfo info = arrayInfo.get(arrayName);
-        if (info != null && info.startIndex != 0) {
-            mipsCode.append("addi $t1, $t1, " + (-info.startIndex) + "\n");
+        ArrayEntry info = arrayInfo.get(arrayName);
+        if (info != null && info.getStartIndex() != 0) {
+            mipsCode.append("addi $t1, $t1, " + (-info.getStartIndex()) + "\n");
         }
         
         // Calcula endereço: base + (índice * 4)
@@ -969,16 +900,14 @@ public class CodegenVisitor {
 
     private void visitProcedureCall(AST node) {
         System.out.println("DEBUG: Entrando em visitProcedureCall() para: " + node.stringData);
-        String procName = node.stringData;
-        
         // Verifica se é procedimento built-in
-        if (procName.equalsIgnoreCase("writeln") || procName.equalsIgnoreCase("write")) {
+        if (node.stringData.equalsIgnoreCase("writeln") || node.stringData.equalsIgnoreCase("write")) {
             visitBuiltinWrite(node);
-        } else if (procName.equalsIgnoreCase("read") || procName.equalsIgnoreCase("readln")) {
+        } else if (node.stringData.equalsIgnoreCase("read") || node.stringData.equalsIgnoreCase("readln")) {
             visitBuiltinRead(node);
         } else {
             // Procedimento definido pelo usuário
-            FunctionInfo procInfo = functionInfo.get(procName);
+            FuncEntry procInfo = functionInfo.get(node.stringData);
             if (procInfo != null) {
                 // Verifica se há argumentos antes de tentar acessá-los
                 if (node.getChildCount() > 0) {
@@ -991,10 +920,10 @@ public class CodegenVisitor {
                             AST argNode = argsNode.getChild(i);
                             
                             // Verifica bounds antes de acessar parâmetros
-                            if (i < procInfo.parameters.size()) {
-                                ParameterInfo paramInfo = procInfo.parameters.get(i);
+                            if (i < procInfo.getParameters().size()) {
+                                ParamEntry paramInfo = procInfo.getParameters().get(i);
                                 
-                                if (paramInfo.isByReference) {
+                                if (paramInfo.isReference()) {
                                     // Passagem por referência - empilha endereço
                                     emitArgumentByReference(argNode);
                                 } else {
@@ -1010,7 +939,7 @@ public class CodegenVisitor {
                 }
                 
                 // Chama o procedimento
-                mipsCode.append("jal " + procInfo.label + "\n");
+                mipsCode.append("jal proc_" + procInfo.getName() + "\n");
                 
                 // Remove argumentos da pilha
                 int actualArgsCount = 0;
@@ -1023,7 +952,7 @@ public class CodegenVisitor {
                     mipsCode.append("addu $sp, $sp, " + argsSize + "\n");
                 }
             } else {
-                 System.out.println("DEBUG: ERRO - Procedimento '" + procName + "' não encontrado em functionInfo.");
+                 System.out.println("DEBUG: ERRO - Procedimento '" + node.stringData + "' não encontrado em functionInfo.");
             }
         }
         System.out.println("DEBUG: Saindo de visitProcedureCall()");
@@ -1031,7 +960,6 @@ public class CodegenVisitor {
 
     private void visitBuiltinWrite(AST node) {
         System.out.println("DEBUG: Entrando em visitBuiltinWrite()");
-        String procName = node.stringData;
         
         // Processa argumentos
         if (node.getChildCount() > 0) {
@@ -1058,7 +986,7 @@ public class CodegenVisitor {
             }
         }
         
-        if (procName.equalsIgnoreCase("writeln")) {
+        if (node.stringData.equalsIgnoreCase("writeln")) {
             // Imprime nova linha
             mipsCode.append("la $a0, newline\n");
             mipsCode.append("li $v0, 4\n");
@@ -1069,7 +997,6 @@ public class CodegenVisitor {
 
     private void visitBuiltinRead(AST node) {
         System.out.println("DEBUG: Entrando em visitBuiltinRead()");
-        String procName = node.stringData;
         
         // Processa argumentos (variáveis para ler)
         if (node.getChildCount() > 0) {
@@ -1140,9 +1067,9 @@ public class CodegenVisitor {
         emitPopTemp("$t1"); // índice em $t1
         
         // Ajusta o índice baseado no startIndex do array
-        ArrayInfo info = arrayInfo.get(arrayName);
-        if (info != null && info.startIndex != 0) {
-            mipsCode.append("addi $t1, $t1, " + (-info.startIndex) + "\n");
+        ArrayEntry info = arrayInfo.get(arrayName);
+        if (info != null && info.getStartIndex() != 0) {
+            mipsCode.append("addi $t1, $t1, " + (-info.getStartIndex()) + "\n");
         }
         
         // Calcula endereço: base + (índice * 4)
@@ -1529,15 +1456,16 @@ public class CodegenVisitor {
         
         // Antes de tratar como variável, verifica se é uma função.
         if (functionInfo.containsKey(varName)) {
-            FunctionInfo funcInfo = functionInfo.get(varName);
-            if (funcInfo.isFunction) {
+            FuncEntry funcInfo = functionInfo.get(varName);
+            Type returnType = funcInfo.getEntryType();
+            if (returnType != null) {
                 // É uma chamada de função sem parâmetros, tratada como "uso de variável" pelo parser.
                 System.out.println("DEBUG: " + varName + " é uma chamada de função, não um uso de variável.");
-                mipsCode.append("jal " + funcInfo.label + "\n"); // Chama a função
+                mipsCode.append("jal func_" + funcInfo.getName() + "\n"); // Chama a função
                 
                 // O valor de retorno da função está em $v0 (int) ou $f0 (real).
                 // Empilhamos esse valor para que a operação de atribuição possa usá-lo.
-                if (funcInfo.returnType == Type.REAL) {
+                if (returnType == Type.REAL) {
                     emitPushFloat("$f0");
                 } else {
                     emitPushTemp("$v0");
@@ -1550,13 +1478,14 @@ public class CodegenVisitor {
         // Primeiro verifica se estamos dentro de uma função/procedimento
         if (currentFunction != null) {
             // Verifica primeiro se é um parâmetro usando a lista de parâmetros
-            FunctionInfo funcInfo = functionInfo.get(currentFunction.name);
+            FuncEntry funcInfo = functionInfo.get(currentFunction.name);
             if (funcInfo != null) {
-                for (ParameterInfo param : funcInfo.parameters) {
-                    if (param.name.equals(varName)) {
-                        if (param.isByReference) {
+                for (ParamEntry param : funcInfo.getParameters()) {
+                    if (param.getName().equals(varName)) {
+                        int offset = currentFunction.localVarOffsets.get(param.getName());
+                        if (param.isReference()) {
                             // Parâmetro por referência - carrega através do endereço armazenado
-                            mipsCode.append("lw $t0, " + param.offset + "($fp)\n"); // carrega endereço do parâmetro
+                            mipsCode.append("lw $t0, " + offset + "($fp)\n"); // carrega endereço do parâmetro
                             
                             if (node.type == Type.REAL) {
                                 mipsCode.append("lwc1 $f0, 0($t0)\n"); // carrega valor através do endereço
@@ -1568,10 +1497,10 @@ public class CodegenVisitor {
                         } else {
                             // Parâmetro por valor - acessa diretamente do stack frame
                             if (node.type == Type.REAL) {
-                                mipsCode.append("lwc1 $f0, " + param.offset + "($fp)\n");
+                                mipsCode.append("lwc1 $f0, " + offset + "($fp)\n");
                                 emitPushFloat("$f0");
                             } else {
-                                mipsCode.append("lw $t0, " + param.offset + "($fp)\n");
+                                mipsCode.append("lw $t0, " + offset + "($fp)\n");
                                 emitPushTemp("$t0");
                             }
                         }
@@ -1648,9 +1577,9 @@ public class CodegenVisitor {
         emitPopTemp("$t1"); // índice
         
         // Ajusta o índice baseado no startIndex do array
-        ArrayInfo info = arrayInfo.get(arrayName);
-        if (info != null && info.startIndex != 0) {
-            mipsCode.append("addi $t1, $t1, " + (-info.startIndex) + "\n");
+        ArrayEntry info = arrayInfo.get(arrayName);
+        if (info != null && info.getStartIndex() != 0) {
+            mipsCode.append("addi $t1, $t1, " + (-info.getStartIndex()) + "\n");
         }
         
         // Calcula endereço: base + (índice * 4)
@@ -1718,9 +1647,9 @@ public class CodegenVisitor {
             emitPopTemp("$t1");
             
             // Ajusta o índice
-            ArrayInfo info = arrayInfo.get(arrayName);
-            if (info != null && info.startIndex != 0) {
-                mipsCode.append("addi $t1, $t1, " + (-info.startIndex) + "\n");
+            ArrayEntry info = arrayInfo.get(arrayName);
+            if (info != null && info.getStartIndex() != 0) {
+                mipsCode.append("addi $t1, $t1, " + (-info.getStartIndex()) + "\n");
             }
             
             // Calcula endereço do elemento
@@ -1741,12 +1670,13 @@ public class CodegenVisitor {
         
         // Verifica se é parâmetro por referência
         if (currentFunction != null) {
-            FunctionInfo funcInfo = functionInfo.get(currentFunction.name);
+            FuncEntry funcInfo = functionInfo.get(currentFunction.name);
             if (funcInfo != null) {
-                for (ParameterInfo param : funcInfo.parameters) {
-                    if (param.name.equals(varName) && param.isByReference) {
+                for (ParamEntry param : funcInfo.getParameters()) {
+                    if (param.getName().equals(varName) && param.isReference()) {
                         // É parâmetro por referência - armazena através do endereço
-                        mipsCode.append("lw $t2, " + param.offset + "($fp)\n"); // carrega endereço
+                        int offset = currentFunction.localVarOffsets.get(param.getName()); // Get the offset from FunctionContext
+                        mipsCode.append("lw $t2, " + offset + "($fp)\n"); // carrega endereço
                         
                         if (isFloat) {
                             mipsCode.append("swc1 " + sourceReg + ", 0($t2)\n");
@@ -1755,12 +1685,13 @@ public class CodegenVisitor {
                         }
                         System.out.println("DEBUG: Variável " + varName + " é um parâmetro por referência. Saindo.");
                         return;
-                    } else if (param.name.equals(varName)) {
+                    } else if (param.getName().equals(varName)) {
                         // Parâmetro por valor - armazena diretamente no stack frame
+                        int offset = currentFunction.localVarOffsets.get(param.getName());
                         if (isFloat) {
-                            mipsCode.append("swc1 " + sourceReg + ", " + param.offset + "($fp)\n");
+                            mipsCode.append("swc1 " + sourceReg + ", " + offset + "($fp)\n");
                         } else {
-                            mipsCode.append("sw " + sourceReg + ", " + param.offset + "($fp)\n");
+                            mipsCode.append("sw " + sourceReg + ", " + offset + "($fp)\n");
                         }
                         System.out.println("DEBUG: Variável " + varName + " é um parâmetro por valor. Saindo.");
                         return;
