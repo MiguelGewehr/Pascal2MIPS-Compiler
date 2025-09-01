@@ -8,21 +8,33 @@ import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.BaseErrorListener;
+import org.antlr.v4.runtime.Recognizer;
+import org.antlr.v4.runtime.RecognitionException;
 import checker.SemanticChecker;
 import parser.PascalLexer;
 import parser.PascalParser;
 import ast.AST;
 import codegen.CodegenVisitor;
+import interpreter.Interpreter;
 
 // Classe principal para compilação Pascal -> MIPS
 public class Main {
     public static void main(String[] args) {
-        if (args.length < 1) {
-            System.err.println("Usage: java Main <pascal_file>");
+        if (args.length < 2) {
+            System.err.println("Usage: java Main [-i|-c] <pascal_file>");
+            System.err.println("  -i: Interpret Pascal code");
+            System.err.println("  -c: Compile to MIPS and run");
             return;
         }
         
-        String filename = args[0];
+        String mode = args[0];
+        String filename = args[1];
+        
+        if (!mode.equals("-i") && !mode.equals("-c")) {
+            System.err.println("Invalid mode. Use -i for interpretation or -c for compilation.");
+            return;
+        }
         try {
             // Cria o input stream a partir do arquivo
             CharStream input = CharStreams.fromFileName(filename);
@@ -52,14 +64,21 @@ public class Main {
                 System.exit(1);
             }
             
-            // === GERAÇÃO DE CÓDIGO MIPS ===
-            CodegenVisitor codegen = new CodegenVisitor();
-            String mipsCode = codegen.generate(ast, checker.getSymbolTable(), checker.getStrTable());
-            
-            // === SALVA O CÓDIGO MIPS EM ARQUIVO ===
-            saveToFile(filename, mipsCode);
-            
-            System.out.println("MIPS code generated successfully!");
+            if (mode.equals("-i")) {
+                // === INTERPRETAÇÃO DO CÓDIGO ===
+                Interpreter interpreter = new Interpreter();
+                interpreter.interpret(ast);
+                System.out.println("Program executed successfully!");
+            } else {
+                // === GERAÇÃO DE CÓDIGO MIPS ===
+                CodegenVisitor codegen = new CodegenVisitor();
+                String mipsCode = codegen.generate(ast, checker.getSymbolTable(), checker.getStrTable());
+                
+                // === SALVA O CÓDIGO MIPS EM ARQUIVO ===
+                saveToFile(filename, mipsCode);
+                
+                System.out.println("MIPS code generated successfully!");
+            }
             
         } catch (IOException e) {
             System.err.printf("ERROR: Could not read file '%s': %s\n", filename, e.getMessage());

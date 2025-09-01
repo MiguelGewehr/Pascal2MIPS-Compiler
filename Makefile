@@ -32,10 +32,33 @@ antlr: $(LEXER_FILE) $(PARSER_FILE)
 javac:
 	rm -rf $(BIN_PATH)
 	mkdir -p $(BIN_PATH)
-	$(JAVAC) $(CLASS_PATH_OPTION) -d $(BIN_PATH) $(GEN_PATH)/*.java checker/SemanticChecker.java Main.java
-# Executa o Main.java com arquivo de entrada
-run:
-	$(JAVA) $(CLASS_PATH_OPTION) Main $(FILE)
+	$(JAVAC) $(CLASS_PATH_OPTION) -d $(BIN_PATH) $(GEN_PATH)/*.java checker/SemanticChecker.java interpreter/Interpreter.java Main.java
+# Executa o interpretador Pascal
+interpret:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Uso: make interpret FILE=caminho/arquivo.pas"; \
+		echo "Exemplo: make interpret FILE=in/c01.pas"; \
+		exit 1; \
+	fi
+	$(JAVA) $(CLASS_PATH_OPTION) Main -i $(FILE)
+
+# Compila Pascal para MIPS e executa
+compile:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Uso: make compile FILE=caminho/arquivo.pas"; \
+		echo "Exemplo: make compile FILE=in/c01.pas"; \
+		exit 1; \
+	fi
+	$(JAVA) $(CLASS_PATH_OPTION) Main -c $(FILE)
+	@ASM_FILE=$$(basename $(FILE) .pas).asm; \
+	if [ -f "out/$$ASM_FILE" ]; then \
+		echo "Executando $$ASM_FILE no MARS..."; \
+		$(MARS) out/$$ASM_FILE; \
+	else \
+		echo "Arquivo out/$$ASM_FILE não encontrado."; \
+		exit 1; \
+	fi
+
 # Executa apenas o analisador léxico (gera tokens)
 tokens:
 	@if [ -z "$(FILE)" ]; then \
@@ -71,21 +94,7 @@ debug:
 		exit 1; \
 	fi
 	$(GRUN) parser.$(GRAMMAR_NAME) program -gui $(FILE)
+
 # Limpa arquivos gerados
 clean:
 	rm -rf $(GEN_PATH) $(BIN_PATH)
-# Gera código MIPS e executa no MARS automaticamente
-test: run
-	@if [ -z "$(FILE)" ]; then \
-		echo "Uso: make test FILE=caminho/arquivo.pas"; \
-		echo "Exemplo: make test FILE=in/c01.pas"; \
-		exit 1; \
-	fi
-	@ASM_FILE=$$(basename $(FILE) .pas).asm; \
-	if [ -f "out/$$ASM_FILE" ]; then \
-		echo "Executando $$ASM_FILE no MARS..."; \
-		$(MARS) out/$$ASM_FILE; \
-	else \
-		echo "Arquivo out/$$ASM_FILE não encontrado."; \
-		exit 1; \
-	fi
